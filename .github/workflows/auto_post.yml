@@ -18,11 +18,11 @@ jobs:
           python-version: '3.9'
 
       - name: Install Libraries
-        run: pip install requests beautifulsoup4 google-generativeai
+        run: pip install requests beautifulsoup4 google-genai
 
       - name: Run Python Script
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # ★金庫からキーを取り出す
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python SHIN_selenium.py
 
       - name: Commit and Push Changes
@@ -30,5 +30,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html SHIN_history.txt
-          git commit -m "Update panel with AI summary" || true
+          git commit -m "Update panel with latest AI library" || true
           git push
