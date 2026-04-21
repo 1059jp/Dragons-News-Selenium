@@ -1,78 +1,85 @@
-import os
 import requests
-import time
 from bs4 import BeautifulSoup
+import datetime
 
-def post_to_x(text):
-    # 値の取得（前後の不要な空白を自動で削除するように改良）
-    auth_token = os.getenv("X_COOKIE_AUTH", "").strip()
-    ct0 = os.getenv("X_CT0", "").strip()
-    
-    if not auth_token or not ct0:
-        print("!!! エラー: Secrets(X_COOKIE_AUTH または X_CT0)が空っぽです")
-        return
-
-    # 最も安定しているAPIエンドポイント
-    url = "https://x.com/i/api/graphql/mCnhS_S6S_U1L0eRshB7aA/CreateTweet"
-    
-    headers = {
-        "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7p9ydD9u7M8p8SU8Y8S8Z7S3XfM8y8e8V8w8E8x8",
-        "Cookie": f"auth_token={auth_token}; ct0={ct0}",
-        "X-Csrf-Token": ct0,
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "X-Twitter-Auth-Type": "OAuth2Session",
-        "X-Twitter-Active-User": "yes",
-        "Referer": "https://x.com/"
-    }
-    
-    # データを最新の構造に固定
-    payload = {
-        "variables": {
-            "tweet_text": text,
-            "dark_request": False,
-            "media": {"media_entities": [], "possibly_sensitive": False},
-            "semantic_annotation_ids": []
-        },
-        "features": {
-            "communities_web_enable_tweet_community_results_fetch": True,
-            "responsive_web_twitter_article_tweet_consumption_enabled": True,
-            "tweet_with_visibility_results_prefer_gql_limited_actions_fetch": True,
-            "responsive_web_text_entities_to_tweet_params_enabled": True,
-            "longform_notetweets_consumption_enabled": True,
-            "view_counts_everywhere_api_enabled": True,
-            "standard_app_bundles_tweet_action_enabled": True
-        }
-    }
-
-    try:
-        print("→ 最終認証プロセスを実行中...")
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        
-        if response.status_code == 200:
-            print("★完了: 正常に送信されました！")
-        else:
-            print(f"!!! 認証失敗 (Status:{response.status_code})")
-            print(f"エラー詳細: {response.text}")
-            print(f"ヒント: ct0の値が [{ct0[:5]}...] であることを確認してください")
-
-    except Exception as e:
-        print(f"!!! 通信エラー: {e}")
-
-def run_system():
-    # ニュース取得
+def get_dragons_news():
     query_url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    
+    news_list = []
     try:
-        res = requests.get(query_url, headers={"User-Agent": "Mozilla/5.0"})
+        res = requests.get(query_url, headers=headers)
         soup = BeautifulSoup(res.text, 'html.parser')
-        link_tag = soup.select_one('a[href*="news.yahoo.co.jp/articles"]')
-        if link_tag:
-            title = link_tag.get_text().strip()
-            href = link_tag.get('href')
-            print(f"【最終トライ】: {title}")
-            post_to_x(f"{title}\n{href}")
+        # 最新5件を取得
+        articles = soup.select('a[href*="news.yahoo.co.jp/articles"]')[:5]
+        
+        for art in articles:
+            title = art.get_text().strip()
+            url = art.get('href').split('?')[0] # 余計なパラメータをカット
+            if title and url not in [n['url'] for n in news_list]:
+                news_list.append({"title": title, "url": url})
     except Exception as e:
-        print(f"ニュース取得失敗: {e}")
+        print(f"取得エラー: {e}")
+    return news_list
+
+def create_html(news_list):
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ドラゴンズ投稿パネル</title>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f8fa; padding: 15px; }}
+            .container {{ max-width: 600px; margin: 0 auto; }}
+            .header {{ background: #003399; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; }}
+            .card {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }}
+            .title {{ font-weight: bold; font-size: 1.1em; color: #1c1e21; margin-bottom: 10px; display: block; }}
+            .post-btn {{ 
+                display: inline-block; background: #1d9bf0; color: white; text-decoration: none; 
+                padding: 10px 20px; border-radius: 30px; font-weight: bold; transition: 0.2s; 
+            }}
+            .post-btn:hover {{ background: #1a8cd8; }}
+            .footer {{ font-size: 0.8em; color: #657786; text-align: center; margin-top: 20px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2 style="margin:0;">🐉 ドラゴンズ投稿パネル</h2>
+                <small>最終更新: {now}</small>
+            </div>
+    """
+
+    for item in news_list:
+        # Xの投稿用URL (intent) を作成
+        encoded_text = requests.utils.quote(f"{item['title']}\n{item['url']}")
+        tweet_url = f"https://twitter.com/intent/tweet?text={encoded_text}"
+        
+        html_content += f"""
+            <div class="card">
+                <span class="title">{item['title']}</span>
+                <a href="{tweet_url}" target="_blank" class="post-btn">𝕏 でポストする</a>
+            </div>
+        """
+
+    html_content += """
+            <div class="footer">
+                <p>ボタンを押すと、投稿画面が立ち上がります。<br>内容を確認して送信してください。</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(html_content)
+    print("★ index.html を更新しました")
 
 if __name__ == "__main__":
-    run_system()
+    news = get_dragons_news()
+    if news:
+        create_html(news)
