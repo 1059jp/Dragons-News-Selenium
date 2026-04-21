@@ -10,7 +10,6 @@ import urllib.parse
 HISTORY_FILE = "SHIN_history.txt"
 
 def build_summary(title):
-    # 余計な装飾をカット
     text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
     if len(text) > 110: text = text[:107] + "..."
     return f"{text}\n\n#dragons #中日ドラゴンズ"
@@ -19,9 +18,14 @@ def get_dragons_news():
     # 検索URL（新着順 st=n）
     word = urllib.parse.quote("中日ドラゴンズ")
     url = f"https://news.yahoo.co.jp/search?p={word}&ei=utf-8&st=n"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    
+    # --- 重要：iPhoneからのアクセスを完璧に装う ---
+    headers = {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1",
+        "Accept-Language": "ja-JP,ja;q=0.9",
+        "Referer": "https://www.yahoo.co.jp/"
+    }
 
-    # 履歴読み込み
     history = set()
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
@@ -29,26 +33,26 @@ def get_dragons_news():
 
     current_stock = []
     try:
-        res = requests.get(url, headers=headers, timeout=15)
+        # セッションを使ってアクセス
+        session = requests.Session()
+        res = session.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 記事カード（sw-Card）をすべて探す
-        items = soup.select('.sw-Card')
-        print(f"DEBUG: 発見した記事カード数: {len(items)}")
+        # クラス名 (.sw-Card) に頼らず、記事リンク (articles/) を持っている <a> タグをすべて探す
+        links = soup.find_all('a', href=re.compile(r'news.yahoo.co.jp/articles/'))
+        print(f"DEBUG: 発見したリンク数: {len(links)}")
 
-        for item in items:
-            link_tag = item.find('a')
-            if not link_tag: continue
+        for link in links:
+            title = link.get_text().strip()
+            # タイトルが短すぎる、または空なら無視
+            if not title or len(title) < 10: continue
             
-            title = link_tag.get_text().strip()
-            href = link_tag.get('href', '').split('?')[0]
-            
-            # 記事ID抽出
+            href = link.get('href', '').split('?')[0]
             aid_match = re.search(r'articles/([a-z0-9]+)', href)
             if not aid_match: continue
             aid = aid_match.group(1)
 
-            # --- 日付チェックを廃止：中日関連 ＆ 未読なら全部出す ---
+            # 中日関連 ＆ 未読なら採用
             if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
                 if title not in history and aid not in history:
                     print(f"DEBUG: 採用記事: {title}")
@@ -63,7 +67,6 @@ def get_dragons_news():
     except Exception as e:
         print(f"DEBUG: エラー発生: {e}")
 
-    # 履歴保存
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         for item in sorted(history):
             f.write(f"{item}\n")
@@ -83,7 +86,7 @@ def create_html(news_list):
         <title>ドラゴンズ速報</title>
         <style>
             body {{ font-family: sans-serif; background: #f0f2f5; padding: 10px; margin: 0; }}
-            .header {{ background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }}
+            .header {{ background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; z-index: 1000; }}
             .refresh-btn {{ margin-top:10px; padding:12px; border-radius:8px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; width: 100%; font-size: 1.1em; }}
             .card {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 6px solid #003399; }}
             .summary-text {{ font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; color: #1c1e21; font-size: 1.05em; }}
@@ -113,7 +116,7 @@ def create_html(news_list):
             </div>
         """
     if not news_list:
-        html_content += "<p style='text-align:center; padding:50px; color:#666; background:white; border-radius:12px;'>新着はありません。<br>「更新」を押して最新を確認してください。</p>"
+        html_content += "<p style='text-align:center; padding:50px; color:#666; background:white; border-radius:12px;'>新着はありません。</p>"
     html_content += "</body></html>"
     with open("index.html", "w", encoding="utf-8") as f: f.write(html_content)
 
