@@ -4,18 +4,18 @@ import time
 from bs4 import BeautifulSoup
 
 def post_to_x(text):
-    auth_token = os.getenv("X_COOKIE_AUTH")
-    ct0 = os.getenv("X_CT0")
+    # 値の取得（前後の不要な空白を自動で削除するように改良）
+    auth_token = os.getenv("X_COOKIE_AUTH", "").strip()
+    ct0 = os.getenv("X_CT0", "").strip()
     
     if not auth_token or not ct0:
-        print("!!! エラー: Secretsの設定を確認してください。")
+        print("!!! エラー: Secrets(X_COOKIE_AUTH または X_CT0)が空っぽです")
         return
 
-    # 最新のエンドポイント
+    # 最も安定しているAPIエンドポイント
     url = "https://x.com/i/api/graphql/mCnhS_S6S_U1L0eRshB7aA/CreateTweet"
     
     headers = {
-        # ★ここを最新の共通Bearerトークンに更新しました
         "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7p9ydD9u7M8p8SU8Y8S8Z7S3XfM8y8e8V8w8E8x8",
         "Cookie": f"auth_token={auth_token}; ct0={ct0}",
         "X-Csrf-Token": ct0,
@@ -23,11 +23,10 @@ def post_to_x(text):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "X-Twitter-Auth-Type": "OAuth2Session",
         "X-Twitter-Active-User": "yes",
-        "X-Twitter-Client-Language": "ja",
         "Referer": "https://x.com/"
     }
     
-    # 2026年現在の最新の変数構造
+    # データを最新の構造に固定
     payload = {
         "variables": {
             "tweet_text": text,
@@ -43,20 +42,19 @@ def post_to_x(text):
             "longform_notetweets_consumption_enabled": True,
             "view_counts_everywhere_api_enabled": True,
             "standard_app_bundles_tweet_action_enabled": True
-        },
-        "fieldToggles": {"withArticleRichContentState": False}
+        }
     }
 
     try:
-        print("→ Xサーバーへ最終同期リクエストを送信中...")
-        # タイムアウトを設定して通信の安定性を高める
+        print("→ 最終認証プロセスを実行中...")
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         
         if response.status_code == 200:
-            print("★おめでとうございます！ついに投稿に成功しました！")
+            print("★完了: 正常に送信されました！")
         else:
-            print(f"!!! 失敗(Status:{response.status_code})")
-            print(f"レスポンス: {response.text}")
+            print(f"!!! 認証失敗 (Status:{response.status_code})")
+            print(f"エラー詳細: {response.text}")
+            print(f"ヒント: ct0の値が [{ct0[:5]}...] であることを確認してください")
 
     except Exception as e:
         print(f"!!! 通信エラー: {e}")
@@ -71,10 +69,10 @@ def run_system():
         if link_tag:
             title = link_tag.get_text().strip()
             href = link_tag.get('href')
-            print(f"【最終送信試行】: {title}")
+            print(f"【最終トライ】: {title}")
             post_to_x(f"{title}\n{href}")
     except Exception as e:
-        print(f"取得エラー: {e}")
+        print(f"ニュース取得失敗: {e}")
 
 if __name__ == "__main__":
     run_system()
