@@ -1,33 +1,39 @@
-name: SHIN Selenium Auto
+name: Dragons News Auto Post
+
 on:
   schedule:
-    - cron: '*/30 * * * *' # 30分おき
-  workflow_dispatch: # 手動ボタンも出す
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
 jobs:
-  run:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Python Setup
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-      - name: Install Chrome
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+
       - name: Install Libraries
-        run: pip install selenium requests beautifulsoup4
+        run: |
+          pip install requests beautifulsoup4 selenium
+
       - name: Run
         env:
+          # ここで GitHub Secrets とプログラムを紐付けます
+          X_COOKIE_AUTH: ${{ secrets.X_COOKIE_AUTH }}
           X_USER_ID: ${{ secrets.X_USER_ID }}
           X_PASSWORD: ${{ secrets.X_PASSWORD }}
           X_EMAIL: ${{ secrets.X_EMAIL }}
         run: python SHIN_selenium.py
+
       - name: Update History
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add SHIN_history.txt || exit 0
-          git commit -m "Update history" || exit 0
+          git add SHIN_history.txt || true
+          git commit -m "Update history" || true
           git push
