@@ -29,27 +29,53 @@ def post_to_x(text):
         
         print("→ 投稿画面へ移動")
         driver.get("https://x.com/compose/post")
-        time.sleep(7)
+        
+        # 画面がしっかり出るまで待つ
+        time.sleep(10)
 
         print("→ 投稿内容を入力中...")
-        # 入力エリアをより確実な属性で指定
         t_box = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="textbox"]')))
         t_box.send_keys(text)
-        time.sleep(2)
+        time.sleep(3)
         
-        print("→ 投稿ボタンをクリックします。")
-        # 【修正】複数の候補（データテストIDや役割）からボタンを特定
-        btn = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@data-testid="tweetButton"] | //div[@data-testid="tweetButton"]')))
+        print("→ 投稿ボタンを探してクリック...")
+        # ボタンを特定するための複数のXPATH
+        btn_xpath = '//button[@data-testid="tweetButton"] | //div[@role="button"]//span[text()="Post"] | //div[@data-testid="tweetButton"]'
+        btn = wait.until(EC.element_to_be_clickable((By.XPATH, btn_xpath)))
         
-        # 強制的にクリックを実行
-        driver.execute_script("arguments[0].click();", btn)
+        # 1. 普通にクリック
+        try:
+            btn.click()
+        except:
+            # 2. 失敗したらJavaScriptで強制クリック
+            driver.execute_script("arguments[0].click();", btn)
         
-        time.sleep(5)
-        print("★投稿処理が完了しました！")
+        print("→ 投稿完了を待機中（15秒）...")
+        time.sleep(15) 
+        
+        # 投稿が成功して画面が切り替わったかチェック
+        if "compose/post" not in driver.current_url:
+            print("★投稿成功の可能性が高いです！画面が切り替わりました。")
+        else:
+            print("!!! 警告: まだ投稿画面のままです。ボタンが押せていない可能性があります。")
 
     except Exception as e:
         print(f"!!! 失敗理由: {e}")
     finally:
         driver.quit()
 
-# run_system関数などは今のままで大丈夫です
+# ニュース取得側の run_system 関数はそのまま（前回の検証用）でOKです
+def run_system():
+    url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    res = requests.get(url, headers=headers)
+    soup = BeautifulSoup(res.text, 'html.parser')
+    link_tag = soup.select_one('a[href*="news.yahoo.co.jp/articles"]')
+    if link_tag:
+        title = link_tag.get_text().strip()
+        href = link_tag.get('href')
+        print(f"【検証投稿】: {title}")
+        post_to_x(f"【自動投稿テスト】\n{title}\n{href}")
+
+if __name__ == "__main__":
+    run_system()
