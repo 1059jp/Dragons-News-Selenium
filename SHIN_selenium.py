@@ -12,13 +12,15 @@ STOCK_FILE = "SHIN_stock.json"
 
 def build_summary(title):
     text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
-    text = text.replace("を発表", "を発表！").replace("が判明", "が判明...")
+    text = text.replace("を発表", "を発表！").replace("が判明", "が判明...").replace("が予告先発", "が予告先発投手に！")
     if "ホームラン" in text: text = text.replace("ホームラン", "🚀ホームラン")
     if "勝利" in text: text = text.replace("勝利", "✨勝利")
+    if "予告先発" in text: text = "🎯" + text
     if len(text) > 110: text = text[:107] + "..."
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
+    # 検索ワードを少し広げて確実にヒットさせる
     url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
     headers = {"User-Agent": "Mozilla/5.0"}
     trust_media = ['chunichi', 'fullcount', 'bbm', 'daily', 'nikkansports', 'spnannex', 'baseballeks', 'baseball', 'hochi']
@@ -37,24 +39,36 @@ def get_dragons_news():
     try:
         res = requests.get(url, headers=headers)
         soup = BeautifulSoup(res.text, 'html.parser')
-        items = soup.find_all('li', class_=lambda x: x and 'sw-Card' in x) or soup.find_all('a')
+        # 検索結果の全リンクを確認
+        items = soup.find_all(['li', 'a'], class_=lambda x: x and ('sw-Card' in x or 'NewsFeed_list_item' in x)) or soup.find_all('a')
 
         new_entries = []
         for item in items:
             title = item.get_text().strip()
             link_tag = item if item.name == 'a' else item.find('a')
             if not link_tag: continue
-            href = link_tag.get('href', '').split('?')[0]
+            
+            # URLからID部分（4d80b...など）だけを抽出して比較に使う
+            full_href = link_tag.get('href', '')
+            article_id_match = re.search(r'articles/([a-z0-9]+)', full_href)
+            article_id = article_id_match.group(1) if article_id_match else full_href.split('?')[0]
 
-            if 'news.yahoo.co.jp/articles' in href and any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
-                is_sports = any(m in href for m in trust_media)
-                is_action = any(a in title for a in ['打', '投', '勝', '負', '戦', '安打', 'ホームラン'])
+            # 判定条件：タイトルにキーワードが含まれるか
+            is_target = any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ'])
+            if is_target and 'news.yahoo.co.jp/articles' in full_href:
+                is_sports = any(m in full_href for m in trust_media)
+                # 「先発」や「公示」などのキーワードも反応しやすく追加
+                is_action = any(a in title for a in ['打', '投', '勝', '負', '戦', '安打', '本塁打', '先発', '公示'])
                 
-                if (is_sports or is_action) and (title not in history and href not in history):
-                    summary_text = build_summary(title)
-                    stock.insert(0, {"summary": summary_text, "url": href, "original": title})
-                    new_entries.extend([title, href])
-                    history.extend([title, href])
+                if is_sports or is_action:
+                    # タイトル または 記事ID のどちらかが履歴になければ新着とみなす
+                    if title not in history and article_id not in history:
+                        summary_text = build_summary(title)
+                        clean_url = f"https://news.yahoo.co.jp/articles/{article_id}" if article_id_match else article_id
+                        
+                        stock.insert(0, {"summary": summary_text, "url": clean_url, "original": title})
+                        new_entries.extend([title, article_id])
+                        history.extend([title, article_id])
 
         if new_entries:
             with open(HISTORY_FILE, "a", encoding="utf-8") as f:
@@ -62,7 +76,7 @@ def get_dragons_news():
     except Exception as e:
         print(f"Error: {e}")
     
-    stock = stock[:20]
+    stock = stock[:25] # 少し枠を広げて25件に
     with open(STOCK_FILE, "w", encoding="utf-8") as f:
         json.dump(stock, f, ensure_ascii=False, indent=4)
         
@@ -122,10 +136,7 @@ def create_html(news_list):
     if not news_list:
         html_content += "<p style='text-align:center; padding:20px; color:#666;'>未処理のニュースはありません。</p>"
     html_content += "</body></html>"
-    
-    # 常に index.html を書き出すように、関数の最後に配置
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(html_content)
+    with open("index.html", "w", encoding="utf-8") as f: f.write(html_content)
 
 if __name__ == "__main__":
     news = get_dragons_news()
