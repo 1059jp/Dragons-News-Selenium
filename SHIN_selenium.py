@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -14,7 +14,7 @@ def post_to_x(text):
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--lang=en-US')
+    chrome_options.add_argument('--window-size=1280,1024') # 画面サイズを固定
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
     
     driver = webdriver.Chrome(options=chrome_options)
@@ -30,27 +30,29 @@ def post_to_x(text):
         
         print("→ 投稿画面へ移動")
         driver.get("https://x.com/compose/post")
-        time.sleep(10)
+        time.sleep(12) # 読み込みを長めに待機
 
         print("→ 投稿内容を入力中...")
         t_box = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="textbox"]')))
-        
-        # 文字を入力
         t_box.send_keys(text)
-        time.sleep(3)
+        time.sleep(5)
         
-        print("→ キーボード操作(Ctrl+Enter)で投稿を実行...")
-        # ボタンを探さず、入力欄に対して「投稿ショートカットキー」を送信します
-        t_box.send_keys(Keys.CONTROL, Keys.ENTER)
+        print("→ 投稿ボタンを『物理的』にクリックします...")
+        # ボタンの要素を特定
+        btn = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@data-testid="tweetButton"] | //div[@data-testid="tweetButtonInline"]')))
         
-        print("→ 完了待機中（15秒）...")
-        time.sleep(15)
+        # マウスをボタンに移動させてクリックする動作を再現
+        actions = ActionChains(driver)
+        actions.move_to_element(btn).click().perform()
         
+        print("→ 完了待機中（20秒）...")
+        time.sleep(20)
+        
+        # 最終確認
         if "compose/post" not in driver.current_url:
-            print("★投稿成功！画面が正常に遷移しました。")
+            print("★おめでとうございます！投稿が完了し、画面が切り替わりました。")
         else:
-            print("!!! 警告: まだ投稿画面です。別の方法でクリックを試みます。")
-            btn = driver.find_element(By.XPATH, '//div[@data-testid="tweetButtonInline"] | //button[@data-testid="tweetButton"]')
+            print("!!! まだ投稿画面です。最後の手段：JavaScriptで無理やり送信します。")
             driver.execute_script("arguments[0].click();", btn)
             time.sleep(10)
 
@@ -59,4 +61,4 @@ def post_to_x(text):
     finally:
         driver.quit()
 
-# run_system はそのまま（検証用）で大丈夫です
+# run_system は検証用のままでOK
