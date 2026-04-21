@@ -9,7 +9,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-# --- 履歴管理（あなたのロジックを維持） ---
+# --- 履歴管理 ---
 HISTORY_FILE = "SHIN_history.txt"
 
 def load_history():
@@ -22,56 +22,54 @@ def save_history(url):
     with open(HISTORY_FILE, "a", encoding="utf-8") as f:
         f.write(url + "\n")
 
-# --- Seleniumによるブラウザ投稿処理 ---
+# --- 最強版ログイン・投稿処理 ---
 def post_to_x(text):
     chrome_options = Options()
-    chrome_options.add_argument('--headless')  # 画面なしで実行
+    chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--window-size=1280,1024')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
     driver = webdriver.Chrome(options=chrome_options)
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 30)
 
     try:
-        # --- SHIN_selenium.py のログイン部分を以下に差し替え ---
         driver.get("https://x.com/login")
         
-        # ユーザー名入力（より確実な指定に変更）
-        user_input = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@autocomplete='username']")))
-        user_input.send_keys(os.getenv("X_USER_ID"))
-        user_input.send_keys(Keys.ENTER)
+        # ユーザー名入力
+        u_field = wait.until(EC.element_to_be_clickable((By.XPATH, "//input[@autocomplete='username']")))
+        u_field.send_keys(os.getenv("X_USER_ID"))
+        u_field.send_keys(Keys.ENTER)
         time.sleep(5)
 
-        # メールアドレス要求のチェックを強化
+        # 予期せぬ「電話番号/メール」要求
         try:
-            # 画面内に "email" という文字があるか確認
-            if "email" in driver.page_source.lower() or "phone" in driver.page_source.lower():
-                sub_input = driver.find_element(By.XPATH, "//input[@data-testid='ocfEnterTextNextButton'] or //input[@autocomplete='email']")
-                sub_input.send_keys(os.getenv("X_EMAIL"))
-                sub_input.send_keys(Keys.ENTER)
+            extra = driver.find_elements(By.XPATH, "//input[@data-testid='ocfEnterTextNextButton'] | //input[@autocomplete='email']")
+            if extra:
+                extra[0].send_keys(os.getenv("X_EMAIL"))
+                extra[0].send_keys(Keys.ENTER)
                 time.sleep(5)
         except:
             pass
 
         # パスワード入力
-        pass_input = wait.until(EC.presence_of_element_located((By.NAME, "password")))
-        pass_input.send_keys(os.getenv("X_PASSWORD"))
-        pass_input.send_keys(Keys.ENTER)
-        time.sleep(10) # ログイン完了まで少し長めに待つ
-        # 投稿画面へ
+        p_field = wait.until(EC.element_to_be_clickable((By.NAME, "password")))
+        p_field.send_keys(os.getenv("X_PASSWORD"))
+        p_field.send_keys(Keys.ENTER)
+        time.sleep(10)
+
+        # 投稿
         driver.get("https://x.com/compose/tweet")
-        tweet_box = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="tweetTextarea_0"]')))
-        tweet_box.send_keys(text)
+        t_box = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="tweetTextarea_0"]')))
+        t_box.send_keys(text)
         
-        # 投稿ボタンをクリック
-        post_btn = driver.find_element(By.CSS_SELECTOR, 'div[data-testid="tweetButton"]')
-        post_btn.click()
+        btn = driver.find_element(By.CSS_SELECTOR, 'div[data-testid="tweetButton"]')
+        btn.click()
         time.sleep(5)
-        print("投稿に成功しました！")
+        print("★投稿成功！")
 
     except Exception as e:
-        print(f"エラー発生: {e}")
+        print(f"投稿失敗: {e}")
     finally:
         driver.quit()
 
@@ -89,7 +87,7 @@ def run_system():
 
     count = 0
     for item in items:
-        if count >= 1: break # 最初は1件だけでテスト
+        if count >= 5: break # 5件まで取得
         title = item.get_text().strip()
         link_tag = item if item.name == 'a' else item.find('a')
         if not link_tag: continue
@@ -102,7 +100,7 @@ def run_system():
                 
                 if is_sports or is_action:
                     count += 1
-                    print(f"取得: {title}")
+                    print(f"【{count}件目】{title}")
                     post_to_x(f"{title}\n{href}")
                     save_history(href)
 
