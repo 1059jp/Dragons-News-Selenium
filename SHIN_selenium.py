@@ -28,28 +28,39 @@ def post_to_x(text):
         u_field = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "input[autocomplete='username']")))
         u_field.send_keys(os.getenv("X_USER_ID"))
         u_field.send_keys(Keys.ENTER)
-        print("→ ユーザー名入力完了")
-        time.sleep(10) # 画面遷移を長く待つ
+        time.sleep(10)
 
-        # 追加認証（メール）のチェック
-        if "email" in driver.page_source.lower() or "phone" in driver.page_source.lower() or "text" in driver.page_source.lower():
-            print("→ 追加認証が必要そうです。メールを入力します。")
+        # 追加認証・画面の文字チェック
+        page_text = driver.page_source.lower()
+        if "email" in page_text or "phone" in page_text or "text" in page_text:
+            print("→ 追加認証画面を検知。メールを入力します。")
             try:
-                # 複数の候補から入力欄を探す
                 sub_field = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@data-testid='ocfEnterTextNextButton'] | //input[@autocomplete='email'] | //input[@name='text']")))
                 sub_field.send_keys(os.getenv("X_EMAIL"))
                 sub_field.send_keys(Keys.ENTER)
-                time.sleep(10) # 入力後の遷移を長く待つ
-            except:
-                print("→ 追加認証の入力に失敗しましたが、続行します。")
+                time.sleep(10)
+            except: pass
 
         print("2. パスワード入力待ち...")
-        # パスワード入力欄をより確実なXPATHで探す
-        p_field = wait.until(EC.visibility_of_element_located((By.XPATH, "//input[@type='password' and @name='password']")))
-        p_field.send_keys(os.getenv("X_PASSWORD"))
-        p_field.send_keys(Keys.ENTER)
-        print("→ パスワード入力完了")
-        time.sleep(15) # ログイン完了までじっくり待つ
+        # 【改良】パスワード欄が出るまで最大60秒、粘り強く画面を確認し続ける
+        try:
+            # パスワード欄を探す前に、今の画面の主要なテキストを表示（デバッグ用）
+            body_text = driver.find_element(By.TAG_NAME, "body").text.replace('\n', ' ')
+            print(f"→ 現在の画面状況: {body_text[:100]}...")
+            
+            p_field = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='password' and @name='password']")))
+            p_field.send_keys(os.getenv("X_PASSWORD"))
+            p_field.send_keys(Keys.ENTER)
+            print("→ パスワード入力完了")
+            time.sleep(15)
+        except Exception as e:
+            print("→ パスワード欄が見つかりません。画面を強制的にパスワード入力画面へ遷移させます。")
+            # パスワード欄が見つからない場合、Enterキーをもう一度押してみる（遷移を促す）
+            driver.switch_to.active_element.send_keys(Keys.ENTER)
+            time.sleep(5)
+            p_field = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='password' or @name='password']")))
+            p_field.send_keys(os.getenv("X_PASSWORD"))
+            p_field.send_keys(Keys.ENTER)
 
         print("3. 投稿準備...")
         driver.get("https://x.com/compose/tweet")
@@ -57,7 +68,6 @@ def post_to_x(text):
         t_box.send_keys(text)
         
         print("4. 投稿実行...")
-        # 投稿ボタンが押せるようになるまで待つ
         btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="tweetButton"]')))
         btn.click()
         time.sleep(10)
@@ -69,29 +79,4 @@ def post_to_x(text):
     finally:
         driver.quit()
 
-# 以下の run_system 関数などは前回の「テスト用（履歴チェックなし）」をそのまま使ってください
-def run_system():
-    url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    trust_media = ['chunichi', 'fullcount', 'bbm', 'daily', 'nikkansports', 'spnannex', 'baseballeks', 'baseball']
-    res = requests.get(url, headers=headers)
-    soup = BeautifulSoup(res.text, 'html.parser')
-    items = soup.find_all('li', class_=lambda x: x and 'sw-Card' in x)
-    if not items: items = soup.find_all('a')
-    count = 0
-    for item in items:
-        if count >= 1: break 
-        title = item.get_text().strip()
-        link_tag = item if item.name == 'a' else item.find('a')
-        if not link_tag: continue
-        href = link_tag.get('href', '')
-        if 'news.yahoo.co.jp/articles' in href and any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
-            is_sports = any(m in href for m in trust_media)
-            is_action = any(a in title for a in ['打', '投', '勝', '負', '戦', '安打', 'ホームラン'])
-            if is_sports or is_action:
-                count += 1
-                print(f"【テスト投稿中】: {title}")
-                post_to_x(f"【テスト】{title}\n{href}")
-
-if __name__ == "__main__":
-    run_system()
+# run_system関数はテスト用のまま（履歴チェックなし）でOK
