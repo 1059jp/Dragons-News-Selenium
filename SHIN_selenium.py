@@ -10,13 +10,15 @@ import json
 HISTORY_FILE = "SHIN_history.txt"
 
 def build_summary(title):
+    # 余計な装飾を消す
     text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
     if len(text) > 110: text = text[:107] + "..."
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
+    # 検索結果（新着順 st=n）
     url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
 
     history = set()
     if os.path.exists(HISTORY_FILE):
@@ -27,35 +29,30 @@ def get_dragons_news():
     try:
         res = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
-        items = soup.find_all('li', class_=lambda x: x and 'sw-Card' in x)
+        # 全てのカード（sw-Card）をチェック
+        items = soup.find_all(['li', 'div'], class_=lambda x: x and 'sw-Card' in x)
         
         for item in items:
-            title_tag = item.find('h3')
             link_tag = item.find('a')
-            time_tag = item.find('span', class_=re.compile(r'time')) 
+            if not link_tag: continue
             
-            if not title_tag or not link_tag: continue
-            
-            title = title_tag.get_text().strip()
+            title = link_tag.get_text().strip()
             href = link_tag.get('href', '').split('?')[0]
-            time_text = time_tag.get_text() if time_tag else ""
+            
+            # 記事IDを抽出
             aid_match = re.search(r'articles/([a-z0-9]+)', href)
             if not aid_match: continue
             aid = aid_match.group(1)
 
-            # 古いニュースは除外
-            if any(k in time_text for k in ["日前", "週前", "ヶ月前"]):
-                continue
-
+            # --- 判定：タイトルに「中日」か「ドラゴンズ」が入っていれば無条件で拾う ---
             if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
                 if title not in history and aid not in history:
                     summary_text = build_summary(title)
                     current_stock.append({
                         "summary": summary_text, 
-                        "url": f"https://news.yahoo.co.jp/articles/{aid}",
-                        "id": aid,
-                        "time": time_text
+                        "url": f"https://news.yahoo.co.jp/articles/{aid}"
                     })
+                    # 履歴に追加
                     history.add(title)
                     history.add(aid)
                     
@@ -84,7 +81,6 @@ def create_html(news_list):
             .header {{ background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }}
             .refresh-btn {{ margin-top:10px; padding:12px; border-radius:8px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; width: 100%; font-size: 1.1em; -webkit-appearance: none; }}
             .card {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 6px solid #003399; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
-            .time-label {{ font-size: 0.85em; color: #cc0000; font-weight: bold; margin-bottom: 8px; display: block; }}
             .summary-text {{ font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; color: #1c1e21; font-size: 1.05em; }}
             .btn-group {{ display: grid; grid-template-columns: 1fr 1fr 60px; gap: 8px; }}
             .btn {{ text-align: center; text-decoration: none; padding: 12px 5px; border-radius: 8px; font-weight: bold; font-size: 0.9em; display: flex; align-items: center; justify-content: center; }}
@@ -95,8 +91,7 @@ def create_html(news_list):
         </style>
         <script>
             function hideAction(el) {{
-                const card = el.closest('.card');
-                card.style.display = 'none';
+                el.closest('.card').style.display = 'none';
             }}
         </script>
     </head>
@@ -110,7 +105,6 @@ def create_html(news_list):
         tweet_url = f"https://twitter.com/intent/tweet?text={requests.utils.quote(item['summary'] + chr(10) + item['url'])}"
         html_content += f"""
             <div class="card">
-                <span class="time-label">🕒 {item['time']}</span>
                 <div class="summary-text">{item['summary']}</div>
                 <div class="btn-group">
                     <a href="{item['url']}" target="_blank" class="btn read-btn">📰 読む</a>
@@ -120,7 +114,7 @@ def create_html(news_list):
             </div>
         """
     if not news_list:
-        html_content += "<p style='text-align:center; padding:50px; color:#666; background:white; border-radius:12px;'>新着はありません。<br><br>「更新」を押して最新を確認するか、<br>5分後の自動更新をお待ちください。</p>"
+        html_content += "<p style='text-align:center; padding:50px; color:#666; background:white; border-radius:12px;'>新着はありません。<br>「更新」を押して最新を確認してください。</p>"
     html_content += "</body></html>"
     with open("index.html", "w", encoding="utf-8") as f: f.write(html_content)
 
