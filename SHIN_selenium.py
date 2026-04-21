@@ -10,23 +10,18 @@ import urllib.parse
 HISTORY_FILE = "SHIN_history.txt"
 
 def build_summary(title):
+    # 余計な装飾をカット
     text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
     if len(text) > 110: text = text[:107] + "..."
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
-    # 検索ワードをエンコードして確実にアクセス
+    # 検索URL（新着順 st=n）
     word = urllib.parse.quote("中日ドラゴンズ")
     url = f"https://news.yahoo.co.jp/search?p={word}&ei=utf-8&st=n"
-    headers = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-    JST = timezone(timedelta(hours=+9), 'JST')
-    now = datetime.datetime.now(JST)
-    m = str(now.month)
-    d = str(now.day)
-    
-    print(f"DEBUG: 検索ターゲット日付: {m}月{d}日")
-
+    # 履歴読み込み
     history = set()
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
@@ -37,38 +32,30 @@ def get_dragons_news():
         res = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 特定のクラス名に依存せず、記事へのリンク（articles/を含むaタグ）をすべて探す
-        links = soup.find_all('a', href=re.compile(r'news.yahoo.co.jp/articles/'))
-        print(f"DEBUG: 発見したリンク総数: {len(links)}")
+        # 記事カード（sw-Card）をすべて探す
+        items = soup.select('.sw-Card')
+        print(f"DEBUG: 発見した記事カード数: {len(items)}")
 
-        for a in links:
-            # 親要素を遡って、日付情報が入っている場所を探す
-            parent = a.find_parent(['li', 'div', 'section'])
-            if not parent: continue
+        for item in items:
+            link_tag = item.find('a')
+            if not link_tag: continue
             
-            title = a.get_text().strip()
-            if not title or len(title) < 5: continue
+            title = link_tag.get_text().strip()
+            href = link_tag.get('href', '').split('?')[0]
             
-            # 日付らしきテキストを親要素から探す
-            time_text = parent.get_text()
-            
-            # --- 判定1：今日の日付チェック ---
-            if not (m in time_text and d in time_text):
-                continue
-            
-            href = a.get('href').split('?')[0]
+            # 記事ID抽出
             aid_match = re.search(r'articles/([a-z0-9]+)', href)
             if not aid_match: continue
             aid = aid_match.group(1)
 
-            # --- 判定2：中日関連か ---
+            # --- 日付チェックを廃止：中日関連 ＆ 未読なら全部出す ---
             if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
                 if title not in history and aid not in history:
+                    print(f"DEBUG: 採用記事: {title}")
                     summary_text = build_summary(title)
                     current_stock.append({
                         "summary": summary_text,
-                        "url": f"https://news.yahoo.co.jp/articles/{aid}",
-                        "time": f"{m}/{d} 掲載"
+                        "url": f"https://news.yahoo.co.jp/articles/{aid}"
                     })
                     history.add(title)
                     history.add(aid)
@@ -109,7 +96,7 @@ def create_html(news_list):
     </head>
     <body>
         <div class="header">
-            <h2 style="margin:0; font-size:1.2em;">🐉 今日のドラゴンズ ({now})</h2>
+            <h2 style="margin:0; font-size:1.2em;">🐉 ドラゴンズ新着 ({now})</h2>
             <button type="button" class="refresh-btn" onclick="window.location.reload(true);">🔄 最新ニュースを読み込む</button>
         </div>
     """
@@ -126,7 +113,7 @@ def create_html(news_list):
             </div>
         """
     if not news_list:
-        html_content += "<p style='text-align:center; padding:50px; color:#666; background:white; border-radius:12px;'>今日の新着はありません。</p>"
+        html_content += "<p style='text-align:center; padding:50px; color:#666; background:white; border-radius:12px;'>新着はありません。<br>「更新」を押して最新を確認してください。</p>"
     html_content += "</body></html>"
     with open("index.html", "w", encoding="utf-8") as f: f.write(html_content)
 
