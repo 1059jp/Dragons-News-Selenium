@@ -2,7 +2,7 @@ name: Update News Panel
 
 on:
   schedule:
-    - cron: '0 * * * *' # 1時間に1回更新（お好みで変えてください）
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: checkout@v4 # 修正: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: setup-python@v5 # 修正: actions/setup-python@v5
         with:
           python-version: '3.9'
 
@@ -23,10 +23,10 @@ jobs:
       - name: Run
         run: python SHIN_selenium.py
 
-      - name: Deploy to GitHub Pages
+      - name: Update Files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git commit -m "Update news panel" || true
+          git add index.html SHIN_history.txt
+          git commit -m "Update news and history with original logic" || true
           git push
