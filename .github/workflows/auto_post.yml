@@ -19,15 +19,12 @@ jobs:
 
       - name: Install Libraries
         run: |
-          pip install requests beautifulsoup4 selenium
+          pip install requests beautifulsoup4
 
       - name: Run
         env:
-          # ここで GitHub Secrets とプログラムを紐付けます
           X_COOKIE_AUTH: ${{ secrets.X_COOKIE_AUTH }}
-          X_USER_ID: ${{ secrets.X_USER_ID }}
-          X_PASSWORD: ${{ secrets.X_PASSWORD }}
-          X_EMAIL: ${{ secrets.X_EMAIL }}
+          X_CT0: ${{ secrets.X_CT0 }}
         run: python SHIN_selenium.py
 
       - name: Update History
