@@ -2,9 +2,7 @@ name: Update News Panel
 
 on:
   schedule:
-    # 1時間に1回、自動でニュースをチェックして更新
     - cron: '0 * * * *'
-  # ボタン一つでいつでも手動実行できるようにする設定
   workflow_dispatch:
 
 jobs:
@@ -20,11 +18,9 @@ jobs:
           python-version: '3.10'
 
       - name: Install Libraries
-        # ニュース取得とAI要約に必要なライブラリをインストール
         run: pip install requests beautifulsoup4
 
       - name: Run Python Script
-        # ここであなたの SHIN_selenium.py が実行されます
         run: python SHIN_selenium.py
 
       - name: Commit and Push Changes
@@ -32,6 +28,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html SHIN_history.txt
-          # ニュースが更新された時だけGitHubに保存
-          git commit -m "Update panel with AI summaries (130 chars)" || true
+          git commit -m "Update panel with 130-char summaries" || true
           git push
