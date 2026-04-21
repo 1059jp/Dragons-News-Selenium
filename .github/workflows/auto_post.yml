@@ -2,9 +2,13 @@ name: Update News Panel
 
 on:
   schedule:
-    # これで「5分おき」に自動チェックするようになります
+    # 5分おきに実行
     - cron: '*/5 * * * *'
   workflow_dispatch:
+
+# --- 付け足し：実行環境自体の時刻を日本に合わせる ---
+env:
+  TZ: 'Asia/Tokyo'
 
 jobs:
   build:
@@ -29,5 +33,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html SHIN_history.txt
-          git commit -m "Update panel with 130-char summaries" || true
+          git commit -m "Fix: JST Time and Click-to-Hide UI" || true
           git push
