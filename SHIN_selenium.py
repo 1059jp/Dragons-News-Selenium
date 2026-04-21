@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import datetime
 import os
 import re
-# --- 付け足し：タイムゾーン設定用 ---
 from datetime import timedelta, timezone
 
 # --- 設定 ---
@@ -11,19 +10,17 @@ HISTORY_FILE = "SHIN_history.txt"
 
 def build_summary(title):
     """
-    カット（切り捨て）ではなく、ニュースの核となる部分を抽出し、
-    130文字以内の自然なポスト用文章として再構成する。
+    ニュースの核となる部分を抽出し、130文字以内の自然な文章に再構成する。
+    冒頭の固定文言は削除しました。
     """
-    # 1. 不要な記号や日付（例：12時30分更新など）を削除
+    # 1. 不要な記号や日付を削除
     clean_title = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
     
-    # 2. ポスト用の文章を組み立て（要約）
-    base_text = f"🐉 中日ニュース更新：{clean_title}"
+    # 2. ポスト用の文章を組み立て（タイトルから開始）
+    summary = clean_title
     
-    if len(base_text) > 115:
-        summary = base_text[:112] + "..."
-    else:
-        summary = base_text
+    if len(summary) > 115:
+        summary = summary[:112] + "..."
         
     return f"{summary} #dragons #中日ドラゴンズ"
 
@@ -72,7 +69,6 @@ def get_dragons_news():
     return news_list
 
 def create_html(news_list):
-    # --- 修正：日本時間（JST）を取得 ---
     JST = timezone(timedelta(hours=+9), 'JST')
     now = datetime.datetime.now(JST).strftime('%m/%d %H:%M')
     
@@ -84,33 +80,28 @@ def create_html(news_list):
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ドラゴンズ最新ニュースパネル</title>
         <style>
-            body {{ font-family: sans-serif; background: #f5f8fa; padding: 15px; }}
+            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f8fa; padding: 15px; }}
             .card {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid #003399; transition: 0.3s; }}
-            .summary-text {{ font-size: 1.1em; font-weight: bold; margin-bottom: 12px; line-height: 1.4; }}
+            .summary-text {{ font-size: 1.1em; font-weight: bold; margin-bottom: 12px; line-height: 1.4; color: #1c1e21; }}
             .post-btn {{ display: inline-block; background: #1d9bf0; color: white; text-decoration: none; padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer; }}
-            
-            /* --- 付け足し：クリックされたら消えるアニメーション --- */
-            .card.fade-out {{ opacity: 0; transform: translateX(20px); pointer-events: none; margin-bottom: 0; height: 0; padding: 0; overflow: hidden; }}
+            .header {{ background:#003399; color:white; padding:15px; border-radius:10px; margin-bottom:15px; }}
+            .refresh-btn {{ margin-top:10px; padding:10px 20px; border-radius:5px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; font-size:0.9em; }}
+            /* クリック時の見た目 */
+            .card.clicked {{ opacity: 0.3; filter: grayscale(1); transform: scale(0.98); pointer-events: none; }}
         </style>
         
         <script>
             function postAndHide(btn) {{
-                // カードを画面から消す
                 const card = btn.closest('.card');
-                card.classList.add('fade-out');
-                
-                // 少し遅れてツイート画面を開く（確実にアニメーションを開始させるため）
-                setTimeout(() => {{
-                    window.open(btn.href, '_blank');
-                }}, 100);
-                
-                return false; // 通常のリンク動作をキャンセル
+                card.classList.add('clicked');
+                return true; 
             }}
         </script>
     </head>
     <body>
-        <div style="background:#003399; color:white; padding:15px; border-radius:10px; margin-bottom:15px;">
-            <h2 style="margin:0;">🐉 ドラゴンズ ニュース更新 ({now})</h2>
+        <div class="header">
+            <h2 style="margin:0;">🐉 ドラゴンズ更新 ({now})</h2>
+            <button class="refresh-btn" onclick="location.reload()">🔄 画面を更新する</button>
         </div>
     """
     for item in news_list:
@@ -118,17 +109,20 @@ def create_html(news_list):
         encoded_text = requests.utils.quote(tweet_text)
         tweet_url = f"https://twitter.com/intent/tweet?text={encoded_text}"
         
-        # 修正：onclickイベントを追加
         html_content += f"""
             <div class="card">
                 <div class="summary-text">{item['summary']}</div>
-                <a href="{tweet_url}" class="post-btn" onclick="return postAndHide(this)">𝕏 でポストする</a>
+                <a href="{tweet_url}" target="_blank" class="post-btn" onclick="postAndHide(this)">𝕏 でポストする</a>
             </div>
         """
+    
+    if not news_list:
+        html_content += "<p style='text-align:center; color:#65676b;'>新しいニュースはまだありません。<br>5分おきに自動チェックしています。</p>"
+        
     html_content += "</body></html>"
     with open("index.html", "w", encoding="utf-8") as f: f.write(html_content)
 
 if __name__ == "__main__":
     news = get_dragons_news()
     create_html(news)
-    print(f"Update Finished: {len(news)} news summarized.")
+    print(f"Update Finished: {len(news)} news processed.")
