@@ -1,35 +1,38 @@
-name: Update News Panel
+name: Dragons News Auto Panel
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
-  workflow_dispatch:
-
-env:
-  TZ: 'Asia/Tokyo'
+    - cron: '*/5 * * * *'  # 5分おきに実行
+  workflow_dispatch:      # 手動実行用ボタン
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.9'
 
-      - name: Install Libraries
-        run: pip install requests beautifulsoup4
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4
 
       - name: Run Python Script
         run: python SHIN_selenium.py
+        env:
+          TZ: 'Asia/Tokyo'
 
       - name: Commit and Push Changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html SHIN_history.txt
-          git commit -m "Update: Remove prefix, JST time, and auto-hide UI" || true
+          git add index.html SHIN_history.txt SHIN_stock.json
+          git commit -m "Update dragons news stock" || true
           git push
