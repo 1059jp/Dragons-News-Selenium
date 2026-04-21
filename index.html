@@ -4,18 +4,19 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>ドラゴンズ最新速報</title>
+        <title>ドラゴンズ速報</title>
         <style>
             body { font-family: sans-serif; background: #f0f2f5; padding: 10px; margin: 0; }
-            .header { background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; }
+            .header { background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; }
             .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 6px solid #003399; }
+            .time-label { font-size: 0.8em; color: #cc0000; font-weight: bold; margin-bottom: 5px; }
             .summary-text { font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; }
             .btn-group { display: grid; grid-template-columns: 1fr 1fr 50px; gap: 8px; }
-            .btn { text-align: center; text-decoration: none; padding: 12px 5px; border-radius: 8px; font-weight: bold; font-size: 0.9em; border: none; }
+            .btn { text-align: center; text-decoration: none; padding: 12px 5px; border-radius: 8px; font-weight: bold; font-size: 0.9em; }
             .read-btn { background: #e7efff; color: #003399; }
             .post-btn { background: #1d9bf0; color: white; }
-            .delete-btn { background: #ddd; color: #666; }
-            .done { display: none; }
+            .delete-btn { background: #ddd; color: #666; border: none; }
+            .card.done { display: none; }
         </style>
         <script>
             function hide(el) { el.closest('.card').classList.add('done'); }
@@ -23,7 +24,7 @@
     </head>
     <body>
         <div class="header">
-            <h2 style="margin:0;">🐉 新着ドラゴンズ (04/21 21:40)</h2>
-            <p style="font-size:0.8em; margin:5px 0 0;">一度表示された記事は、5分後の更新で自動で消えます</p>
+            <h2 style="margin:0;">🐉 今日のドラゴンズ (04/21 21:44:16)</h2>
+            <p style="font-size:0.8em; margin:5px 0 0;">一度出たニュースは、更新で消えます</p>
         </div>
-    <p style='text-align:center; padding:50px; color:#666;'>新着はありません。<br>5分後の自動更新をお待ちください。</p></body></html>
+    <p style='text-align:center; padding:50px; color:#666;'>新しいニュースはありません。<br>しばらく待ってから更新してください。</p></body></html>
