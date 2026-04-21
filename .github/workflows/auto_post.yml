@@ -2,7 +2,9 @@ name: Update News Panel
 
 on:
   schedule:
+    # 1時間に1回自動実行
     - cron: '0 * * * *'
+  # 手動でも実行できるようにする
   workflow_dispatch:
 
 jobs:
@@ -18,6 +20,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install Libraries
+        # AI要約（requests）とスクレイピング（beautifulsoup4）に必要なものをインストール
         run: pip install requests beautifulsoup4
 
       - name: Run Python Script
@@ -28,5 +31,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html SHIN_history.txt
-          git commit -m "Update news panel without API keys" || true
+          # 変更がある場合のみコミット
+          git commit -m "Update panel with AI summaries (130 chars)" || true
           git push
