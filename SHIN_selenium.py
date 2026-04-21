@@ -12,6 +12,7 @@ HISTORY_FILE = "SHIN_history.txt"
 STOCK_FILE = "SHIN_stock.json"
 
 def build_summary(title):
+    # 余計な装飾をカット
     text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
     text = text.replace("を発表", "を発表！").replace("が判明", "が判明...")
     if "ホームラン" in text: text = text.replace("ホームラン", "🚀ホームラン")
@@ -23,10 +24,10 @@ def get_dragons_news():
     url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-    # 日本時間の今日の日付を取得 (例: 4/21)
+    # 日本時間の今日の日付 (例: 4/21)
     JST = timezone(timedelta(hours=+9), 'JST')
     now_jst = datetime.datetime.now(JST)
-    today_str = now_jst.strftime('%-m/%-d') # 先頭の0を付けない形式 (4/21)
+    today_str = now_jst.strftime('%-m/%-d')
 
     history = []
     if os.path.exists(HISTORY_FILE):
@@ -34,33 +35,25 @@ def get_dragons_news():
             history = [line.strip() for line in f.readlines()]
 
     stock = []
-    # ストックを読み込み、古い（今日じゃない）データはここで一度掃除する
-    if os.path.exists(STOCK_FILE):
-        with open(STOCK_FILE, "r", encoding="utf-8") as f:
-            try:
-                raw_stock = json.load(f)
-                # タイトル等に今日の日付が含まれているか、
-                # または新しく取得する際に判定するため、ここでは一旦空から始めてもOKです
-                stock = [] 
-            except:
-                stock = []
+    # 実行のたびにストックをクリア（当日分のみを新鮮に保つため）
+    # 過去分を残したい場合はここを読み込み処理に変えてください
 
     try:
         res = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
-        
-        # sw-Card クラスを持つ要素（記事の塊）をすべて取得
         items = soup.find_all(class_=lambda x: x and 'sw-Card' in x)
 
         new_entries = []
         for item in items:
-            # 時間ラベルを取得 (例: "4/21(火) 20:33")
+            # 時間ラベルの取得
             time_tag = item.find(class_=re.compile(r'time'))
             time_text = time_tag.get_text() if time_tag else ""
 
-            # --- 【当日絞り込み判定】 ---
-            # 記事の時間に「今日の日付」が含まれていないなら無視（昨日以前のニュースをカット）
-            if today_str not in time_text:
+            # --- 【当日絞り込み判定：強化版】 ---
+            # 「今日の日付」が含まれるか、「分前」「時間前」という相対表記なら「今日」とみなす
+            is_today = (today_str in time_text) or ("分" in time_text) or ("時間" in time_text)
+            
+            if not is_today:
                 continue
 
             link_tag = item.find('a')
@@ -69,10 +62,8 @@ def get_dragons_news():
             href = link_tag.get('href', '').split('?')[0]
             title = item.get_text().strip()
             
-            # 短すぎるタイトルはスキップ
             if len(title) < 10: continue
 
-            # キーワードチェック
             if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
                 if title not in history and href not in history:
                     summary_text = build_summary(title)
@@ -125,7 +116,7 @@ def create_html(news_list):
     <body>
         <div class="header">
             <h2 style="margin:0; font-size:1.1em;">🐉 ドラゴンズ新着 ({now})</h2>
-            <button class="refresh-btn" onclick="location.reload()">🔄 最新に更新</button>
+            <button class="refresh-btn" onclick="location.reload()">🔄 表示を最新に更新</button>
         </div>
     """
     for item in news_list:
@@ -141,7 +132,7 @@ def create_html(news_list):
             </div>
         """
     if not news_list:
-        html_content += "<p style='text-align:center; padding:50px; color:#666;'>本日の新着ニュースはありません。</p>"
+        html_content += "<p style='text-align:center; padding:50px; color:#666;'>本日の新着ニュースはまだありません。</p>"
     html_content += "</body></html>"
     
     with open("index.html", "w", encoding="utf-8") as f:
