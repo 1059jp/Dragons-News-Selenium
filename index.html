@@ -7,11 +7,10 @@
         <title>ドラゴンズ速報</title>
         <style>
             body { font-family: sans-serif; background: #f0f2f5; padding: 10px; margin: 0; }
-            .header { background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-            .refresh-btn { margin-top:10px; padding:12px; border-radius:8px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; width: 100%; font-size: 1.1em; }
-            .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 6px solid #003399; animation: slideIn 0.3s ease-out; }
-            @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-            .summary-text { font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; color: #1c1e21; font-size: 1.05em; line-height: 1.4; }
+            .header { background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; z-index: 1000; }
+            .refresh-btn { margin-top:10px; padding:12px; border-radius:8px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; width: 100%; }
+            .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 6px solid #003399; }
+            .summary-text { font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; color: #1c1e21; }
             .btn-group { display: grid; grid-template-columns: 1fr 1fr 60px; gap: 8px; }
             .btn { text-align: center; text-decoration: none; padding: 12px 5px; border-radius: 8px; font-weight: bold; font-size: 0.9em; display: flex; align-items: center; justify-content: center; }
             .read-btn { background: #e7efff; color: #003399; border: 1px solid #003399; }
@@ -21,12 +20,7 @@
     </head>
     <body>
         <div class="header">
-            <h2 style="margin:0; font-size:1.2em;">🐉 ドラゴンズ新着 (04/21 22:54:58)</h2>
-            <button type="button" class="refresh-btn" onclick="window.location.reload(true);">🔄 ページを更新</button>
+            <h2 style="margin:0;">🐉 ドラゴンズ新着 (04/21 23:01:42)</h2>
+            <button type="button" class="refresh-btn" onclick="window.location.reload(true);">🔄 情報を更新</button>
         </div>
-    
-            <div style='text-align:center; padding:50px; color:#666; background:white; border-radius:12px;'>
-                <p>現在、新しいニュースはありません。</p>
-                <p style="font-size: 0.8em;">(※既に読み込んだニュースは非表示になります)</p>
-            </div>
-        </body></html>
+    <p style='text-align:center; padding:50px; color:#666; background:white; border-radius:12px;'>新着ニュースはありません。</p></body></html>
