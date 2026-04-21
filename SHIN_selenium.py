@@ -14,10 +14,23 @@ def post_to_x(text):
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--window-size=1280,1024') # 画面サイズを固定
-    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+    # 1. 画面サイズを一般的なノートPCサイズに設定
+    chrome_options.add_argument('--window-size=1920,1080')
+    # 2. 自動操縦であることを隠す設定を追加
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
     driver = webdriver.Chrome(options=chrome_options)
+    # 3. 画面上の「webdriver」フラグを消す（ロボット検知対策）
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        "source": """
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            })
+        """
+    })
+    
     wait = WebDriverWait(driver, 30)
 
     try:
@@ -30,35 +43,33 @@ def post_to_x(text):
         
         print("→ 投稿画面へ移動")
         driver.get("https://x.com/compose/post")
-        time.sleep(12) # 読み込みを長めに待機
+        time.sleep(15) # 完全に読み込むまで長く待つ
 
         print("→ 投稿内容を入力中...")
         t_box = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="textbox"]')))
         t_box.send_keys(text)
         time.sleep(5)
         
-        print("→ 投稿ボタンを『物理的』にクリックします...")
-        # ボタンの要素を特定
-        btn = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@data-testid="tweetButton"] | //div[@data-testid="tweetButtonInline"]')))
+        print("→ 投稿ボタンを狙い撃ちします...")
+        # ボタンを特定（より確実な要素を指定）
+        btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')))
         
-        # マウスをボタンに移動させてクリックする動作を再現
-        actions = ActionChains(driver)
-        actions.move_to_element(btn).click().perform()
+        # ボタンまでスクロールして、マウスでクリック
+        driver.execute_script("arguments[0].scrollIntoView(true);", btn)
+        time.sleep(2)
+        ActionChains(driver).move_to_element(btn).click().perform()
         
-        print("→ 完了待機中（20秒）...")
-        time.sleep(20)
+        print("→ 投稿完了をじっくり待機中（30秒）...")
+        time.sleep(30) 
         
-        # 最終確認
+        # 画面が変わったかログに出す
+        print(f"最終URL: {driver.current_url}")
         if "compose/post" not in driver.current_url:
-            print("★おめでとうございます！投稿が完了し、画面が切り替わりました。")
+            print("★URLが変化しました！投稿成功です！")
         else:
-            print("!!! まだ投稿画面です。最後の手段：JavaScriptで無理やり送信します。")
-            driver.execute_script("arguments[0].click();", btn)
-            time.sleep(10)
+            print("!!! 画面が変わりませんでした。投稿が拒否された可能性があります。")
 
     except Exception as e:
-        print(f"!!! 失敗理由: {e}")
+        print(f"!!! エラー発生: {e}")
     finally:
         driver.quit()
-
-# run_system は検証用のままでOK
