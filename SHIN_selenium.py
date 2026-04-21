@@ -11,12 +11,11 @@ HISTORY_FILE = "SHIN_history.txt"
 def build_summary(title):
     """
     ニュースの核となる部分を抽出し、130文字以内の自然な文章に再構成する。
-    冒頭の固定文言は削除しました。
     """
     # 1. 不要な記号や日付を削除
     clean_title = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
     
-    # 2. ポスト用の文章を組み立て（タイトルから開始）
+    # 2. ポスト用の文章を組み立て
     summary = clean_title
     
     if len(summary) > 115:
@@ -80,21 +79,25 @@ def create_html(news_list):
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ドラゴンズ最新ニュースパネル</title>
         <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f8fa; padding: 15px; }}
-            .card {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid #003399; transition: 0.3s; }}
-            .summary-text {{ font-size: 1.1em; font-weight: bold; margin-bottom: 12px; line-height: 1.4; color: #1c1e21; }}
-            .post-btn {{ display: inline-block; background: #1d9bf0; color: white; text-decoration: none; padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer; }}
+            body {{ font-family: -apple-system, sans-serif; background: #f5f8fa; padding: 15px; }}
             .header {{ background:#003399; color:white; padding:15px; border-radius:10px; margin-bottom:15px; }}
-            .refresh-btn {{ margin-top:10px; padding:10px 20px; border-radius:5px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; font-size:0.9em; }}
-            /* クリック時の見た目 */
-            .card.clicked {{ opacity: 0.3; filter: grayscale(1); transform: scale(0.98); pointer-events: none; }}
+            .refresh-btn {{ margin-top:10px; padding:10px 20px; border-radius:5px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; }}
+            
+            .card {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid #003399; transition: 0.3s; position: relative; }}
+            .summary-text {{ font-size: 1.1em; font-weight: bold; margin-bottom: 12px; line-height: 1.4; padding-right: 30px; }}
+            
+            .btn-group {{ display: flex; gap: 10px; align-items: center; }}
+            .post-btn {{ flex-grow: 1; text-align: center; background: #1d9bf0; color: white; text-decoration: none; padding: 12px; border-radius: 30px; font-weight: bold; }}
+            .delete-btn {{ background: #e0e0e0; color: #666; text-decoration: none; padding: 12px 18px; border-radius: 30px; font-weight: bold; cursor: pointer; border: none; }}
+            
+            /* 消える時のアニメーション */
+            .card.fade-out {{ opacity: 0; transform: scale(0.9); pointer-events: none; height: 0; margin: 0; padding: 0; overflow: hidden; }}
         </style>
         
         <script>
-            function postAndHide(btn) {{
-                const card = btn.closest('.card');
-                card.classList.add('clicked');
-                return true; 
+            function hideCard(el) {{
+                const card = el.closest('.card');
+                card.classList.add('fade-out');
             }}
         </script>
     </head>
@@ -112,12 +115,15 @@ def create_html(news_list):
         html_content += f"""
             <div class="card">
                 <div class="summary-text">{item['summary']}</div>
-                <a href="{tweet_url}" target="_blank" class="post-btn" onclick="postAndHide(this)">𝕏 でポストする</a>
+                <div class="btn-group">
+                    <a href="{tweet_url}" target="_blank" class="post-btn" onclick="hideCard(this)">𝕏 ポスト</a>
+                    <button class="delete-btn" onclick="hideCard(this)">✕ 消す</button>
+                </div>
             </div>
         """
     
     if not news_list:
-        html_content += "<p style='text-align:center; color:#65676b;'>新しいニュースはまだありません。<br>5分おきに自動チェックしています。</p>"
+        html_content += "<p style='text-align:center;'>新しいニュースはありません。</p>"
         
     html_content += "</body></html>"
     with open("index.html", "w", encoding="utf-8") as f: f.write(html_content)
