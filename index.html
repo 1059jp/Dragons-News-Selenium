@@ -7,13 +7,14 @@
         <title>ドラゴンズ速報</title>
         <style>
             body { font-family: sans-serif; background: #f0f2f5; padding: 10px; margin: 0; }
-            .header { background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; }
+            .header { background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+            .refresh-btn { margin-top:10px; padding:10px; border-radius:5px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; width: 100%; font-size: 1em; }
             .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 6px solid #003399; }
-            .time-label { font-size: 0.8em; color: #cc0000; font-weight: bold; margin-bottom: 5px; }
-            .summary-text { font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; }
+            .time-label { font-size: 0.85em; color: #cc0000; font-weight: bold; margin-bottom: 5px; }
+            .summary-text { font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; color: #1c1e21; }
             .btn-group { display: grid; grid-template-columns: 1fr 1fr 50px; gap: 8px; }
             .btn { text-align: center; text-decoration: none; padding: 12px 5px; border-radius: 8px; font-weight: bold; font-size: 0.9em; }
-            .read-btn { background: #e7efff; color: #003399; }
+            .read-btn { background: #e7efff; color: #003399; border: 1px solid #003399; }
             .post-btn { background: #1d9bf0; color: white; }
             .delete-btn { background: #ddd; color: #666; border: none; }
             .card.done { display: none; }
@@ -24,7 +25,7 @@
     </head>
     <body>
         <div class="header">
-            <h2 style="margin:0;">🐉 今日のドラゴンズ (04/21 21:44:16)</h2>
-            <p style="font-size:0.8em; margin:5px 0 0;">一度出たニュースは、更新で消えます</p>
+            <h2 style="margin:0; font-size:1.2em;">🐉 今日のドラゴンズ (04/21 21:47:03)</h2>
+            <button class="refresh-btn" onclick="location.reload()">🔄 最新に更新する</button>
         </div>
-    <p style='text-align:center; padding:50px; color:#666;'>新しいニュースはありません。<br>しばらく待ってから更新してください。</p></body></html>
+    <p style='text-align:center; padding:50px; color:#666;'>新着ニュースはありません。<br>（一度見た記事は自動で消えます）</p></body></html>
