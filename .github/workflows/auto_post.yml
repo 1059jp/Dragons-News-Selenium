@@ -1,8 +1,8 @@
-name: Dragons News Auto Post
+name: Update News Panel
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '0 * * * *' # 1時間に1回更新（お好みで変えてください）
   workflow_dispatch:
 
 jobs:
@@ -18,19 +18,15 @@ jobs:
           python-version: '3.9'
 
       - name: Install Libraries
-        run: |
-          pip install requests beautifulsoup4
+        run: pip install requests beautifulsoup4
 
       - name: Run
-        env:
-          X_COOKIE_AUTH: ${{ secrets.X_COOKIE_AUTH }}
-          X_CT0: ${{ secrets.X_CT0 }}
         run: python SHIN_selenium.py
 
-      - name: Update History
+      - name: Deploy to GitHub Pages
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add SHIN_history.txt || true
-          git commit -m "Update history" || true
+          git add index.html
+          git commit -m "Update news panel" || true
           git push
