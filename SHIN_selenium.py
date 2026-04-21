@@ -13,7 +13,6 @@ STOCK_FILE = "SHIN_stock.json"
 
 def build_summary(title):
     text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
-    # 以前の装飾ルールを維持
     text = text.replace("を発表", "を発表！").replace("が判明", "が判明...")
     if "ホームラン" in text: text = text.replace("ホームラン", "🚀ホームラン")
     if "勝利" in text: text = text.replace("勝利", "✨勝利")
@@ -25,7 +24,6 @@ def get_dragons_news():
     url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-    # 履歴とストックの読み込み
     history = []
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
@@ -41,28 +39,28 @@ def get_dragons_news():
         res = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 【修正】liタグにこだわらず sw-Card クラスを持つものをすべて取得
-        items = soup.find_all(class_=lambda x: x and 'sw-Card' in x)
+        # 【超重要】タグの種類(liやdiv)を特定せず、aタグのリンク先だけでニュースを判別するように変更
+        links = soup.find_all('a', href=re.compile(r'news.yahoo.co.jp/articles/'))
 
         new_entries = []
-        for item in items:
-            link_tag = item.find('a')
-            if not link_tag: continue
+        for link in links:
+            href = link.get('href', '').split('?')[0]
+            # リンクの中にあるテキスト（タイトル）を取得
+            title = link.get_text().strip()
             
-            title = item.get_text().strip()
-            href = link_tag.get('href', '').split('?')[0]
+            # タイトルが短すぎる（「続きを読む」など）ものは無視
+            if len(title) < 10:
+                continue
 
-            # 基本条件：Yahoo記事URLであり、キーワードが含まれていること
-            if 'news.yahoo.co.jp/articles' in href and any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
-                # 履歴にタイトルもURLもなければ採用
+            # キーワードチェック
+            if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
+                # 履歴チェック
                 if title not in history and href not in history:
                     summary_text = build_summary(title)
-                    # ストックの先頭（一番上）に追加
-                    stock.insert(0, {"summary": summary_text, "url": href, "original": title})
+                    stock.insert(0, {"summary": summary_text, "url": href})
                     new_entries.extend([title, href])
                     history.extend([title, href])
 
-        # 新着があれば履歴を更新
         if new_entries:
             with open(HISTORY_FILE, "a", encoding="utf-8") as f:
                 for entry in new_entries: f.write(entry + "\n")
@@ -70,7 +68,6 @@ def get_dragons_news():
     except Exception as e:
         print(f"Error: {e}")
     
-    # 最大20件キープ
     stock = stock[:20]
     with open(STOCK_FILE, "w", encoding="utf-8") as f:
         json.dump(stock, f, ensure_ascii=False, indent=4)
