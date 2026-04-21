@@ -34,22 +34,23 @@ def post_to_x(text):
     wait = WebDriverWait(driver, 20)
 
     try:
-        # ログイン開始
+        # --- SHIN_selenium.py のログイン部分を以下に差し替え ---
         driver.get("https://x.com/login")
         
-        # ユーザー名入力（@なし）
-        user_input = wait.until(EC.presence_of_element_located((By.NAME, "text")))
+        # ユーザー名入力（より確実な指定に変更）
+        user_input = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@autocomplete='username']")))
         user_input.send_keys(os.getenv("X_USER_ID"))
         user_input.send_keys(Keys.ENTER)
-        time.sleep(3)
+        time.sleep(5)
 
-        # 稀に要求されるメールアドレス入力（不審なログイン対策）
+        # メールアドレス要求のチェックを強化
         try:
-            sub_input = driver.find_element(By.NAME, "text")
-            if sub_input:
+            # 画面内に "email" という文字があるか確認
+            if "email" in driver.page_source.lower() or "phone" in driver.page_source.lower():
+                sub_input = driver.find_element(By.XPATH, "//input[@data-testid='ocfEnterTextNextButton'] or //input[@autocomplete='email']")
                 sub_input.send_keys(os.getenv("X_EMAIL"))
                 sub_input.send_keys(Keys.ENTER)
-                time.sleep(3)
+                time.sleep(5)
         except:
             pass
 
@@ -57,8 +58,7 @@ def post_to_x(text):
         pass_input = wait.until(EC.presence_of_element_located((By.NAME, "password")))
         pass_input.send_keys(os.getenv("X_PASSWORD"))
         pass_input.send_keys(Keys.ENTER)
-        time.sleep(7)
-
+        time.sleep(10) # ログイン完了まで少し長めに待つ
         # 投稿画面へ
         driver.get("https://x.com/compose/tweet")
         tweet_box = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="tweetTextarea_0"]')))
