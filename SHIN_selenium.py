@@ -12,26 +12,26 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 def summarize_for_x(title):
-    """100文字以内の要約を作る（モデル指定をより厳密に）"""
+    """100文字以内の要約を作る（最新のモデル指定方法に修正）"""
     if not client:
         return title
         
     prompt = f"以下の野球ニュースのタイトルを、Xで投稿できるように100文字以内で要約してください。日付や時間は削除してください。語尾は短くしてください。\n\nタイトル: {title}"
     
     try:
-        # モデル名を 'models/gemini-1.5-flash' とフルパスで指定
+        # 最新ライブラリでは 'gemini-1.5-flash' とだけ書くのが正解です
         response = client.models.generate_content(
-            model="models/gemini-1.5-flash", 
+            model="gemini-1.5-flash", 
             contents=prompt
         )
         return response.text.strip()
     except Exception as e:
-        # まだエラーが出る場合はログに出力して元のタイトルを返す
+        # エラーが出た場合はログに出して元のタイトルを返す
         print(f"AI要約エラー詳細: {e}")
         return title
 
 def get_dragons_news():
-    # --- 元のロジックを維持 ---
+    # --- あなたの元のロジックを維持 ---
     url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
     headers = {"User-Agent": "Mozilla/5.0"}
     trust_media = ['chunichi', 'fullcount', 'bbm', 'daily', 'nikkansports', 'spnannex', 'baseballeks', 'baseball']
