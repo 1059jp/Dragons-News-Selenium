@@ -18,10 +18,13 @@ def get_dragons_news():
     url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-    # 日本の今日の日付（M/D形式）を取得
+    # 日本の「月」と「日」を別々に取得（4 と 21）
     JST = timezone(timedelta(hours=+9), 'JST')
-    today_str = datetime.datetime.now(JST).strftime('%-m/%-d') # 「4/21」のような形式
-    print(f"DEBUG: 今日の日付: {today_str}")
+    now = datetime.datetime.now(JST)
+    m = str(now.month)
+    d = str(now.day)
+    
+    print(f"DEBUG: 検索ターゲット日付: {m}月{d}日")
 
     history = set()
     if os.path.exists(HISTORY_FILE):
@@ -45,9 +48,9 @@ def get_dragons_news():
             href = link_tag.get('href', '').split('?')[0]
             time_text = time_tag.get_text() if time_tag else ""
 
-            # --- 判定1：今日の日付が含まれているかチェック ---
-            # time_textの中に「4/21」などの今日の日付が入っているものだけを許可
-            if today_str not in time_text:
+            # --- 判定1：今日の日付チェック（強化版） ---
+            # 「4」と「21」の両方が文字列に入っていればOKとする（例: "4/21(火) 20:00" や "4月21日" に対応）
+            if not (m in time_text and d in time_text):
                 continue
             
             aid_match = re.search(r'articles/([a-z0-9]+)', href)
