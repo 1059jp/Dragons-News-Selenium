@@ -37,7 +37,7 @@ def get_dragons_news():
         for item in items:
             title_tag = item.find('h3')
             link_tag = item.find('a')
-            time_tag = item.find('span', class_=re.compile(r'time')) # 時間を取得
+            time_tag = item.find('span', class_=re.compile(r'time')) 
             
             if not title_tag or not link_tag: continue
             
@@ -50,16 +50,15 @@ def get_dragons_news():
             if not aid_match: continue
             aid = aid_match.group(1)
 
-            # --- 判定1：日付チェック（古いニュースを捨てる） ---
-            # 「日前」や「週前」が含まれていたら古いので無視
-            if "日前" in time_text or "週前" in time_text or "ヶ月前" in time_text:
+            # --- 判定1：日付チェック（「日前」や「週前」は古いので無視） ---
+            if any(k in time_text for k in ["日前", "週前", "ヶ月前"]):
                 continue
 
             # --- 判定2：キーワードと履歴チェック ---
             if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
                 if title not in history and aid not in history:
                     summary_text = build_summary(title)
-                    # 新しい順にリストに追加
+                    # リストに追加
                     current_stock.append({
                         "summary": summary_text, 
                         "url": f"https://news.yahoo.co.jp/articles/{aid}",
@@ -93,13 +92,14 @@ def create_html(news_list):
         <title>ドラゴンズ速報</title>
         <style>
             body {{ font-family: sans-serif; background: #f0f2f5; padding: 10px; margin: 0; }}
-            .header {{ background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; }}
+            .header {{ background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }}
+            .refresh-btn {{ margin-top:10px; padding:10px; border-radius:5px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; width: 100%; font-size: 1em; }}
             .card {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 6px solid #003399; }}
-            .time-label {{ font-size: 0.8em; color: #cc0000; font-weight: bold; margin-bottom: 5px; }}
-            .summary-text {{ font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; }}
+            .time-label {{ font-size: 0.85em; color: #cc0000; font-weight: bold; margin-bottom: 5px; }}
+            .summary-text {{ font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; color: #1c1e21; }}
             .btn-group {{ display: grid; grid-template-columns: 1fr 1fr 50px; gap: 8px; }}
             .btn {{ text-align: center; text-decoration: none; padding: 12px 5px; border-radius: 8px; font-weight: bold; font-size: 0.9em; }}
-            .read-btn {{ background: #e7efff; color: #003399; }}
+            .read-btn {{ background: #e7efff; color: #003399; border: 1px solid #003399; }}
             .post-btn {{ background: #1d9bf0; color: white; }}
             .delete-btn {{ background: #ddd; color: #666; border: none; }}
             .card.done {{ display: none; }}
@@ -110,8 +110,8 @@ def create_html(news_list):
     </head>
     <body>
         <div class="header">
-            <h2 style="margin:0;">🐉 今日のドラゴンズ ({now})</h2>
-            <p style="font-size:0.8em; margin:5px 0 0;">一度出たニュースは、更新で消えます</p>
+            <h2 style="margin:0; font-size:1.2em;">🐉 今日のドラゴンズ ({now})</h2>
+            <button class="refresh-btn" onclick="location.reload()">🔄 最新に更新する</button>
         </div>
     """
     for item in news_list:
@@ -123,12 +123,12 @@ def create_html(news_list):
                 <div class="btn-group">
                     <a href="{item['url']}" target="_blank" class="btn read-btn">📰 読む</a>
                     <a href="{tweet_url}" target="_blank" class="btn post-btn" onclick="hide(this)">𝕏 ポスト</a>
-                    <button class="btn delete-btn" onclick="hide(this)">✕</button>
+                    <button class="btn delete-btn" onclick="hideCard(this)">✕</button>
                 </div>
             </div>
         """
     if not news_list:
-        html_content += "<p style='text-align:center; padding:50px; color:#666;'>新しいニュースはありません。<br>しばらく待ってから更新してください。</p>"
+        html_content += "<p style='text-align:center; padding:50px; color:#666;'>新着ニュースはありません。<br>（一度見た記事は自動で消えます）</p>"
     html_content += "</body></html>"
     with open("index.html", "w", encoding="utf-8") as f: f.write(html_content)
 
