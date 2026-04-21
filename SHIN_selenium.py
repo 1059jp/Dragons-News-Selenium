@@ -4,7 +4,7 @@ import datetime
 import os
 import re
 from datetime import timedelta, timezone
-import json
+import urllib.parse
 
 # --- 設定 ---
 HISTORY_FILE = "SHIN_history.txt"
@@ -15,10 +15,11 @@ def build_summary(title):
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
-    url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    # 検索ワードをエンコードして確実にアクセス
+    word = urllib.parse.quote("中日ドラゴンズ")
+    url = f"https://news.yahoo.co.jp/search?p={word}&ei=utf-8&st=n"
+    headers = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15"}
 
-    # 日本の「月」と「日」を別々に取得（4 と 21）
     JST = timezone(timedelta(hours=+9), 'JST')
     now = datetime.datetime.now(JST)
     m = str(now.month)
@@ -35,42 +36,47 @@ def get_dragons_news():
     try:
         res = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
-        items = soup.select('.sw-Card')
+        
+        # 特定のクラス名に依存せず、記事へのリンク（articles/を含むaタグ）をすべて探す
+        links = soup.find_all('a', href=re.compile(r'news.yahoo.co.jp/articles/'))
+        print(f"DEBUG: 発見したリンク総数: {len(links)}")
 
-        for item in items:
-            title_tag = item.find('h3')
-            link_tag = item.find('a')
-            time_tag = item.find('span', class_=re.compile(r'time')) 
+        for a in links:
+            # 親要素を遡って、日付情報が入っている場所を探す
+            parent = a.find_parent(['li', 'div', 'section'])
+            if not parent: continue
             
-            if not title_tag or not link_tag: continue
+            title = a.get_text().strip()
+            if not title or len(title) < 5: continue
             
-            title = title_tag.get_text().strip()
-            href = link_tag.get('href', '').split('?')[0]
-            time_text = time_tag.get_text() if time_tag else ""
-
-            # --- 判定1：今日の日付チェック（強化版） ---
-            # 「4」と「21」の両方が文字列に入っていればOKとする（例: "4/21(火) 20:00" や "4月21日" に対応）
+            # 日付らしきテキストを親要素から探す
+            time_text = parent.get_text()
+            
+            # --- 判定1：今日の日付チェック ---
             if not (m in time_text and d in time_text):
                 continue
             
+            href = a.get('href').split('?')[0]
             aid_match = re.search(r'articles/([a-z0-9]+)', href)
             if not aid_match: continue
             aid = aid_match.group(1)
 
+            # --- 判定2：中日関連か ---
             if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
                 if title not in history and aid not in history:
                     summary_text = build_summary(title)
                     current_stock.append({
                         "summary": summary_text,
                         "url": f"https://news.yahoo.co.jp/articles/{aid}",
-                        "time": time_text
+                        "time": f"{m}/{d} 掲載"
                     })
                     history.add(title)
                     history.add(aid)
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"DEBUG: エラー発生: {e}")
 
+    # 履歴保存
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         for item in sorted(history):
             f.write(f"{item}\n")
@@ -93,7 +99,6 @@ def create_html(news_list):
             .header {{ background:#003399; color:white; padding:15px; text-align:center; border-radius: 8px; margin-bottom:15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }}
             .refresh-btn {{ margin-top:10px; padding:12px; border-radius:8px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; width: 100%; font-size: 1.1em; }}
             .card {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 6px solid #003399; }}
-            .time-label {{ font-size: 0.85em; color: #cc0000; font-weight: bold; margin-bottom: 8px; display: block; }}
             .summary-text {{ font-weight: bold; margin-bottom: 15px; white-space: pre-wrap; color: #1c1e21; font-size: 1.05em; }}
             .btn-group {{ display: grid; grid-template-columns: 1fr 1fr 60px; gap: 8px; }}
             .btn {{ text-align: center; text-decoration: none; padding: 12px 5px; border-radius: 8px; font-weight: bold; font-size: 0.9em; display: flex; align-items: center; justify-content: center; }}
@@ -109,10 +114,9 @@ def create_html(news_list):
         </div>
     """
     for item in news_list:
-        tweet_url = f"https://twitter.com/intent/tweet?text={requests.utils.quote(item['summary'] + chr(10) + item['url'])}"
+        tweet_url = f"https://twitter.com/intent/tweet?text={urllib.parse.quote(item['summary'] + chr(10) + item['url'])}"
         html_content += f"""
             <div class="card">
-                <span class="time-label">🕒 {item.get('time', '')}</span>
                 <div class="summary-text">{item['summary']}</div>
                 <div class="btn-group">
                     <a href="{item['url']}" target="_blank" class="btn read-btn">📰 読む</a>
