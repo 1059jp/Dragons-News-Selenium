@@ -11,25 +11,16 @@ HISTORY_FILE = "SHIN_history.txt"
 STOCK_FILE = "SHIN_stock.json"
 
 def build_summary(title):
-    """
-    文章をきれいに掃除し、改行を入れてポストしやすくする。
-    """
     text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
-    
-    # 語尾や重要ワードを調整
     text = text.replace("を発表", "を発表！").replace("が判明", "が判明...")
     if "ホームラン" in text: text = text.replace("ホームラン", "🚀ホームラン")
     if "勝利" in text: text = text.replace("勝利", "✨勝利")
-
-    if len(text) > 110:
-        text = text[:107] + "..."
-        
+    if len(text) > 110: text = text[:107] + "..."
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
     url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
     headers = {"User-Agent": "Mozilla/5.0"}
-    # --- スポーツ報知 (hochi) を追加しました ---
     trust_media = ['chunichi', 'fullcount', 'bbm', 'daily', 'nikkansports', 'spnannex', 'baseballeks', 'baseball', 'hochi']
 
     history = []
@@ -131,8 +122,12 @@ def create_html(news_list):
     if not news_list:
         html_content += "<p style='text-align:center; padding:20px; color:#666;'>未処理のニュースはありません。</p>"
     html_content += "</body></html>"
-    with open("index.html", "w", encoding="utf-8") as f: f.write(html_content)
+    
+    # 常に index.html を書き出すように、関数の最後に配置
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(html_content)
 
 if __name__ == "__main__":
     news = get_dragons_news()
     create_html(news)
+    print("Check finished.")
