@@ -2,8 +2,8 @@ name: Update News Panel
 
 on:
   schedule:
-    - cron: '0 * * * *' # 1時間に1回実行
-  workflow_dispatch: # 手動実行用
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,9 +18,11 @@ jobs:
           python-version: '3.9'
 
       - name: Install Libraries
-        run: pip install requests beautifulsoup4
+        run: pip install requests beautifulsoup4 google-generativeai
 
       - name: Run Python Script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # ★金庫からキーを取り出す
         run: python SHIN_selenium.py
 
       - name: Commit and Push Changes
@@ -28,5 +30,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html SHIN_history.txt
-          git commit -m "Update news panel and history" || true
+          git commit -m "Update panel with AI summary" || true
           git push
