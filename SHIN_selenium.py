@@ -10,13 +10,39 @@ HISTORY_FILE = "SHIN_history.txt"
 
 def build_summary(title):
     """
-    ニュースの核となる部分を抽出し、130文字以内の自然な文章に再構成する。
+    ニュースの核を抽出し、改行を含めたポスト用文章を作成する。
     """
-    clean_title = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
-    summary = clean_title
-    if len(summary) > 115:
-        summary = summary[:112] + "..."
-    return f"{summary} #dragons #中日ドラゴンズ"
+    # 1. 不要な記号やメディア名を削除
+    text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
+    
+    # 2. 語尾の調整（SNSっぽく自然に）
+    replacements = {
+        "を発表": "を発表！",
+        "が判明": "が判明...",
+        "に期待": "に期待大！",
+        "へ意欲": "へ意欲を見せる",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    # 3. 重要キーワードの強調
+    keywords = {
+        "ホームラン": "🚀ホームラン",
+        "本塁打": "🚀本塁打",
+        "勝利": "✨勝利",
+        "猛打賞": "🔥猛打賞",
+        "サヨナラ": "🙌サヨナラ",
+    }
+    for key, emoji in keywords.items():
+        if key in text:
+            text = text.replace(key, emoji)
+
+    # 4. ポスト用の文章を組み立て（本文とタグの間に改行を入れる）
+    if len(text) > 110:
+        text = text[:107] + "..."
+    
+    # \n を入れることで、ツイート画面で改行されます
+    return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
     url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
@@ -75,20 +101,21 @@ def create_html(news_list):
         <title>ドラゴンズ最新ニュースパネル</title>
         <style>
             body {{ font-family: -apple-system, sans-serif; background: #f5f8fa; padding: 10px; margin: 0; }}
-            .header {{ background:#003399; color:white; padding:15px; margin-bottom:15px; }}
+            .header {{ background:#003399; color:white; padding:15px; margin-bottom:15px; text-align:center; }}
             .refresh-btn {{ margin-top:10px; padding:10px 20px; border-radius:5px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; width: 100%; }}
             
             .card {{ background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 5px solid #003399; transition: 0.3s; }}
-            .summary-text {{ font-size: 1.05em; font-weight: bold; margin-bottom: 15px; line-height: 1.4; color: #1c1e21; }}
+            /* white-space: pre-wrap; を追加してパネル上でも改行を表示 */
+            .summary-text {{ font-size: 1.05em; font-weight: bold; margin-bottom: 15px; line-height: 1.5; color: #1c1e21; white-space: pre-wrap; }}
             
-            .btn-group {{ display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 8px; }}
-            .btn {{ text-align: center; text-decoration: none; padding: 10px 5px; border-radius: 8px; font-weight: bold; font-size: 0.9em; display: flex; align-items: center; justify-content: center; }}
+            .btn-group {{ display: grid; grid-template-columns: 1fr 1.2fr 50px; gap: 8px; }}
+            .btn {{ text-align: center; text-decoration: none; padding: 12px 5px; border-radius: 8px; font-weight: bold; font-size: 0.85em; display: flex; align-items: center; justify-content: center; }}
             
             .read-btn {{ background: #f0f2f5; color: #003399; border: 1px solid #003399; }}
             .post-btn {{ background: #1d9bf0; color: white; }}
-            .delete-btn {{ background: #eeeeee; color: #666666; border: none; }}
+            .delete-btn {{ background: #eeeeee; color: #666; border: none; }}
             
-            .card.fade-out {{ opacity: 0; transform: scale(0.9); pointer-events: none; height: 0; margin: 0; padding: 0; overflow: hidden; }}
+            .card.fade-out {{ opacity: 0; transform: scale(0.95); pointer-events: none; height: 0; margin: 0; padding: 0; overflow: hidden; }}
         </style>
         
         <script>
@@ -100,7 +127,7 @@ def create_html(news_list):
     </head>
     <body>
         <div class="header">
-            <h2 style="margin:0; font-size:1.2em;">🐉 ドラゴンズ更新 ({now})</h2>
+            <h2 style="margin:0; font-size:1.1em;">🐉 ドラゴンズ更新 ({now})</h2>
             <button class="refresh-btn" onclick="location.reload()">🔄 画面を更新する</button>
         </div>
     """
@@ -121,7 +148,7 @@ def create_html(news_list):
         """
     
     if not news_list:
-        html_content += "<p style='text-align:center; padding:20px; color:#666;'>新しいニュースはありません。<br>5分おきに自動更新されます。</p>"
+        html_content += "<p style='text-align:center; padding:20px; color:#666;'>新しいニュースはありません。</p>"
         
     html_content += "</body></html>"
     with open("index.html", "w", encoding="utf-8") as f: f.write(html_content)
