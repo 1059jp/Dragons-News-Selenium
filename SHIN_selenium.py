@@ -14,7 +14,6 @@ def build_summary(title):
     """
     文章をきれいに掃除し、改行を入れてポストしやすくする。
     """
-    # 余計なノイズを削除
     text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
     
     # 語尾や重要ワードを調整
@@ -25,21 +24,19 @@ def build_summary(title):
     if len(text) > 110:
         text = text[:107] + "..."
         
-    # 本文とハッシュタグの間に改行を入れる
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
     url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
     headers = {"User-Agent": "Mozilla/5.0"}
-    trust_media = ['chunichi', 'fullcount', 'bbm', 'daily', 'nikkansports', 'spnannex', 'baseballeks', 'baseball']
+    # --- スポーツ報知 (hochi) を追加しました ---
+    trust_media = ['chunichi', 'fullcount', 'bbm', 'daily', 'nikkansports', 'spnannex', 'baseballeks', 'baseball', 'hochi']
 
-    # 履歴の読み込み
     history = []
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             history = [line.strip() for line in f.readlines()]
 
-    # 未処理ストックの読み込み
     stock = []
     if os.path.exists(STOCK_FILE):
         with open(STOCK_FILE, "r", encoding="utf-8") as f:
@@ -64,7 +61,6 @@ def get_dragons_news():
                 
                 if (is_sports or is_action) and (title not in history and href not in history):
                     summary_text = build_summary(title)
-                    # 新着をリストの最初に追加
                     stock.insert(0, {"summary": summary_text, "url": href, "original": title})
                     new_entries.extend([title, href])
                     history.extend([title, href])
@@ -75,7 +71,6 @@ def get_dragons_news():
     except Exception as e:
         print(f"Error: {e}")
     
-    # 最大20件までストックを維持
     stock = stock[:20]
     with open(STOCK_FILE, "w", encoding="utf-8") as f:
         json.dump(stock, f, ensure_ascii=False, indent=4)
