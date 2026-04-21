@@ -11,7 +11,7 @@ def post_to_x(text):
         return
 
     # Xの内部APIエンドポイント (CreateTweet)
-    url = "https://x.com/i/api/graphql/jMa7-ptUBz9vvv9_2O66uA/CreateTweet"
+    url = "https://x.com/i/api/graphql/mCnhS_S6S_U1L0eRshB7aA/CreateTweet"
     
     # 通信ヘッダー：ブラウザになりすますための設定
     headers = {
