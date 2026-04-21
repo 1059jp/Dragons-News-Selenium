@@ -2,7 +2,8 @@ name: Update News Panel
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    # これで「5分おき」に自動チェックするようになります
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
