@@ -4,11 +4,11 @@ import urllib.parse
 from datetime import timedelta, timezone
 
 # ==========================================
-# --- 設定 (ファイル名に合わせて修正しました) ---
+# --- 設定 ---
 # ==========================================
 OWNER = "1059jp"
 REPO = "Dragons-News-Selenium"
-WORKFLOW_FILE = "auto_post.yml"  # ← ここを auto_post.yml に修正しました
+WORKFLOW_FILE = "auto_post.yml" 
 
 # ==========================================
 # --- HTML作成関数 ---
@@ -17,22 +17,20 @@ def create_html(news_list):
     JST = timezone(timedelta(hours=+9), 'JST')
     now = datetime.datetime.now(JST).strftime('%m/%d %H:%M')
     
-    # JavaScript部分：エラー時に鍵を削除して再入力可能にする
+    # 【診断機能付き】JavaScript
     js_code = """
     function hideCard(el) { el.closest('.card').style.display = 'none'; }
     function reloadPage() { location.reload(); }
 
     async function triggerSystemUpdate() {
-        // 保存されている鍵を取得（Yahoo版専用の保存名）
         let token = localStorage.getItem('GH_TOKEN_YAHOO');
         
-        // 鍵がない、または空っぽの場合は入力を求める
         if(!token || token === "null") {
             token = prompt("【GitHubトークン入力】\\nghp_ から始まる鍵を入力してください。");
             if(token) {
                 localStorage.setItem('GH_TOKEN_YAHOO', token);
             } else {
-                return; // キャンセルされたら何もしない
+                return;
             }
         }
 
@@ -42,7 +40,6 @@ def create_html(news_list):
         btn.disabled = true;
 
         try {
-            // 設定した OWNER, REPO, WORKFLOW_FILE を使って通信
             const response = await fetch('https://api.github.com/repos/""" + OWNER + "/" + REPO + """/actions/workflows/""" + WORKFLOW_FILE + """/dispatches', {
                 method: 'POST',
                 headers: {
@@ -54,16 +51,23 @@ def create_html(news_list):
 
             if (response.status === 204) {
                 alert("🚀 システム起動成功！\\n約1分後に更新ボタンを押してください。");
-            } else if(response.status === 401) {
-                // 鍵が間違っていたら記憶を消してやり直しさせる
-                alert("❌ 鍵が無効です。入力をやり直してください。");
-                localStorage.removeItem('GH_TOKEN_YAHOO');
             } else {
-                alert("⚠️ エラーが発生しました(Status: " + response.status + ")。一度鍵をリセットします。");
-                localStorage.removeItem('GH_TOKEN_YAHOO');
+                // ここで具体的なエラー番号を表示するようにしました
+                let errorMsg = "⚠️ エラーが発生しました。\\nStatus: " + response.status + " (" + response.statusText + ")";
+                
+                if(response.status === 401) {
+                    errorMsg += "\\n\\n【原因】鍵(トークン)が間違っているか、消去されています。シークレットモードで入れ直してください。";
+                    localStorage.removeItem('GH_TOKEN_YAHOO');
+                } else if(response.status === 404) {
+                    errorMsg += "\\n\\n【原因】宛先が見つかりません。OWNER名、REPO名、または指示書ファイル名が間違っています。";
+                } else if(response.status === 403) {
+                    errorMsg += "\\n\\n【原因】権限がありません。GitHubのSettingsで「Read and Write」を許可してください。";
+                }
+                
+                alert(errorMsg);
             }
         } catch (e) {
-            alert("📡 通信失敗。ネット接続を確認してください。");
+            alert("📡 通信失敗: " + e);
         } finally {
             btn.innerText = originalText;
             btn.disabled = false;
