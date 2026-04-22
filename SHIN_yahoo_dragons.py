@@ -1,20 +1,71 @@
-import os
-import datetime
-import urllib.parse
 import requests
 from bs4 import BeautifulSoup
+import datetime
+import os
+import re
 from datetime import timedelta, timezone
+import urllib.parse
 
-# ==========================================
 # --- 設定 ---
-# ==========================================
 OWNER = "1059jp"
 REPO = "Dragons-News-Selenium"
 WORKFLOW_FILE = "auto_post.yml" 
+HISTORY_FILE = "SHIN_history.txt"
 
-# ==========================================
-# --- HTML作成関数 ---
-# ==========================================
+def build_summary(title):
+    text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
+    text = text.replace("を発表", "を発表！").replace("が判明", "が判明...")
+    if "ホームラン" in text: text = text.replace("ホームラン", "🚀ホームラン")
+    if "勝利" in text: text = text.replace("勝利", "✨勝利")
+    if len(text) > 110: text = text[:107] + "..."
+    return f"{text}\n\n#dragons #中日ドラゴンズ"
+
+def get_dragons_news():
+    url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+    # 履歴を読み込む（一度出したやつを覚えるため）
+    history = []
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            history = [line.strip() for line in f.readlines()]
+
+    news_list = []
+    new_entries_to_save = []
+
+    try:
+        res = requests.get(url, headers=headers, timeout=15)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        links = soup.find_all('a', href=re.compile(r'news.yahoo.co.jp/articles/'))
+
+        for link in links:
+            href = link.get('href', '').split('?')[0]
+            title = link.get_text().strip()
+            
+            if len(title) < 10: continue
+
+            # ドラゴンズ関連かつ、過去に「一度も」出したことがないものだけ
+            if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
+                if title not in history and href not in history:
+                    summary_text = build_summary(title)
+                    # 今回の表示リストに追加
+                    news_list.append({"summary": summary_text, "url": href})
+                    # 履歴に保存するリストに追加
+                    new_entries_to_save.extend([title, href])
+                    history.extend([title, href])
+
+        # 新しいニュースがあったら履歴に追記（これで次回から出なくなる）
+        if new_entries_to_save:
+            with open(HISTORY_FILE, "a", encoding="utf-8") as f:
+                for entry in new_entries_to_save: f.write(entry + "\n")
+                
+    except Exception as e:
+        print(f"Error: {e}")
+    
+    # 💡 ここで「STOCK_FILE」への保存をやめました。
+    # 常に「今見つかった未読分」だけを返します。
+    return news_list
+
 def create_html(news_list):
     JST = timezone(timedelta(hours=+9), 'JST')
     now = datetime.datetime.now(JST).strftime('%m/%d %H:%M')
@@ -26,13 +77,11 @@ def create_html(news_list):
     async function triggerSystemUpdate() {
         let token = localStorage.getItem('GH_TOKEN_YAHOO');
         if(!token || token === "null") {
-            token = prompt("【GitHubトークン入力】\\nghp_ から始まる鍵を入力してください。");
+            token = prompt("鍵を入力してください。");
             if(token) { localStorage.setItem('GH_TOKEN_YAHOO', token); }
             else { return; }
         }
-
         const btn = document.querySelector('.system-btn');
-        const originalText = btn.innerText;
         btn.innerText = "⏳ 実行中...";
         btn.disabled = true;
 
@@ -45,19 +94,10 @@ def create_html(news_list):
                 },
                 body: JSON.stringify({ ref: 'main' })
             });
-
-            if (response.status === 204) {
-                alert("🚀 システム起動成功！\\n約1分後に更新ボタンを押してください。");
-            } else {
-                let errorMsg = "⚠️ エラーが発生しました。\\nStatus: " + response.status;
-                alert(errorMsg);
-            }
-        } catch (e) {
-            alert("📡 通信失敗: " + e);
-        } finally {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        }
+            if (response.status === 204) { alert("🚀 更新完了！\\n1分後にリロードしてください。"); }
+            else { alert("エラー: " + response.status); }
+        } catch (e) { alert("失敗: " + e); }
+        finally { btn.innerText = "🚀 システム更新"; btn.disabled = false; }
     }
     """
     
@@ -107,41 +147,12 @@ def create_html(news_list):
             </div>
         """
     if not news_list:
-        html_content += "<p style='text-align:center; padding:50px; color:#666;'>新着ニュースはありません。</p>"
+        html_content += "<p style='text-align:center; padding:50px; color:#666;'>【未読なし】<br>新しいニュースはありません。</p>"
     html_content += "</div></body></html>"
     
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
 
-# ==========================================
-# --- ニュース取得とメイン処理 ---
-# ==========================================
-def main():
-    # Yahoo!ニュース検索（中日ドラゴンズ）
-    search_url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8"
-    news_list = []
-    
-    try:
-        response = requests.get(search_url, timeout=10)
-        soup = BeautifulSoup(response.text, "html.parser")
-        
-        # Yahooニュースの検索結果から記事タイトルとURLを抽出
-        articles = soup.select('li.sw-Card')
-        
-        for article in articles[:15]: # 最大15件取得
-            title_tag = article.select_one('h3')
-            link_tag = article.select_one('a')
-            
-            if title_tag and link_tag:
-                title = title_tag.get_text()
-                url = link_tag.get('href').split('?')[0] # 余計なパラメータをカット
-                news_list.append({"summary": title, "url": url})
-                
-    except Exception as e:
-        print(f"エラー発生: {e}")
-
-    # HTML作成を実行
-    create_html(news_list)
-
 if __name__ == "__main__":
-    main()
+    news_data = get_dragons_news()
+    create_html(news_data)
