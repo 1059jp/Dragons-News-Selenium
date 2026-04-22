@@ -13,15 +13,11 @@ WORKFLOW_FILE = "auto_post.yml"
 HISTORY_FILE = "SHIN_history.txt"
 
 def build_summary(title):
-    # 💡 修正：ポスト用テキストから日付と時間を削除
     text = title.strip()
-    # 2026/4/22 のような日付を削除
+    # 日付と時間を削除
     text = re.sub(r'\d{4}/\d{1,2}/\d{1,2}', '', text)
-    # 18:24 のような時間を削除
     text = re.sub(r'\d{1,2}:\d{2}', '', text)
-    # 重なった空白を整理
     text = text.strip()
-    
     if len(text) > 110: text = text[:107] + "..."
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
@@ -32,10 +28,12 @@ def get_dragons_news():
         "Referer": "https://www.google.com/"
     }
 
+    # 履歴の読み込み
     history = []
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             history = [line.strip() for line in f.readlines()]
+    print(f"DEBUG: 現在の履歴件数: {len(history)}件")
 
     news_list = []
     new_entries_to_save = []
@@ -45,33 +43,44 @@ def get_dragons_news():
         res.raise_for_status()
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # ニュース枠をまるごと取得（リード文を含むため）
         articles = soup.find_all(['li', 'div'], class_=re.compile(r'ListItem|Card'))
-        
-        if not articles:
-            articles = soup.find_all('a')
+        print(f"DEBUG: ページ内の記事枠数: {len(articles)}")
 
         for item in articles:
-            link_tag = item if item.name == 'a' else item.find('a')
+            link_tag = item.find('a')
             if not link_tag: continue
             
             href = link_tag.get('href', '').split('?')[0]
-            if not href or ('yahoo.co.jp' not in href and not href.startswith('/')): continue
             if href.startswith('/'): href = "https://sports.yahoo.co.jp" + href
             
-            # 枠内の全テキスト（タイトル＋説明文）で判定
+            # 判定用テキスト（タイトル＋説明文）
             full_content = item.get_text(separator=" ", strip=True)
-            
+            # 表示用タイトル
+            display_title = link_tag.get_text(strip=True)
+
+            # 「中日」か「ドラゴンズ」が含まれているか
             if '中日' in full_content or 'ドラゴンズ' in full_content:
-                display_title = link_tag.get_text(strip=True)
-                if not display_title: display_title = full_content[:50]
+                # 💡 ここで「なぜ落選したか」をログに出す
+                is_new_url = href not in history
+                is_new_title = display_title not in history
                 
-                if len(display_title) >= 8:
-                    if href not in history and display_title not in history:
+                if is_new_url and is_new_title:
+                    if len(display_title) >= 8:
                         summary_text = build_summary(display_title)
                         news_list.append({"summary": summary_text, "url": href})
                         new_entries_to_save.extend([display_title, href])
                         history.extend([display_title, href])
+                        print(f"✅ 採用: {display_title[:20]}...")
+                else:
+                    # 履歴にあった場合はその理由をログに出す
+                    print(f"⏩ スキップ（既読）: {display_title[:20]}... (URL重複:{not is_new_url} / タイトル重複:{not is_new_title})")
+
+        # 履歴ファイルへの書き込み（追記）
+        if new_entries_to_save:
+            with open(HISTORY_FILE, "a", encoding="utf-8") as f:
+                for entry in new_entries_to_save:
+                    f.write(entry + "\n")
+            print(f"DEBUG: 履歴に {len(new_entries_to_save)} 件追加しました。")
                 
     except Exception as e:
         print(f"DEBUG Error: {e}")
@@ -89,7 +98,7 @@ def create_html(news_list):
     async function triggerSystemUpdate() {
         let token = localStorage.getItem('GH_TOKEN_YAHOO');
         if(!token || token === "null") {
-            token = prompt("鍵（ghp_...）を入力してください。");
+            token = prompt("鍵を入力してください。");
             if(token) { localStorage.setItem('GH_TOKEN_YAHOO', token); }
             else { return; }
         }
@@ -167,11 +176,4 @@ def create_html(news_list):
 
 if __name__ == "__main__":
     news_data = get_dragons_news()
-    # 💡 ニュースが0件（新着なし）でも、必ずHTMLを作成して保存するようにします
     create_html(news_data)
-    
-    # ログを出して、GitHubに「仕事をしたぞ」とアピールする
-    if not news_data:
-        print("LOG: 新着はありませんでしたが、画面をリフレッシュしました。")
-    else:
-        print(f"LOG: {len(news_data)} 件の新着ニュースで画面を更新しました。")
