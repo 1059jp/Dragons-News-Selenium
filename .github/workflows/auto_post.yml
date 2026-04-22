@@ -34,7 +34,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # 【修正3】SHIN_stock.json を git add から外しました（ストック廃止のため）
-          git add index.html SHIN_history.txt
-          git commit -m "Update dragons news" || true
+          git add .
+          # ↓ --allow-empty を追加。これで「変更なし」でも強制的に更新が走ります
+          git commit --allow-empty -m "System Update: $(date)"
           git push
