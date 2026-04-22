@@ -13,11 +13,12 @@ WORKFLOW_FILE = "auto_post.yml"
 HISTORY_FILE = "SHIN_history.txt"
 
 def build_summary(title):
+    # ポスト用テキストから日付と時間を削除
     text = title.strip()
-    # 日付と時間を削除
     text = re.sub(r'\d{4}/\d{1,2}/\d{1,2}', '', text)
     text = re.sub(r'\d{1,2}:\d{2}', '', text)
     text = text.strip()
+    
     if len(text) > 110: text = text[:107] + "..."
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
@@ -43,44 +44,47 @@ def get_dragons_news():
         res.raise_for_status()
         soup = BeautifulSoup(res.text, 'html.parser')
         
+        # ニュース枠（ListItem）をまるごと取得
         articles = soup.find_all(['li', 'div'], class_=re.compile(r'ListItem|Card'))
-        print(f"DEBUG: ページ内の記事枠数: {len(articles)}")
+        
+        if not articles:
+            articles = soup.find_all('a')
 
         for item in articles:
-            link_tag = item.find('a')
+            link_tag = item if item.name == 'a' else item.find('a')
             if not link_tag: continue
             
+            # URLを整形（パラメータを消して純粋なアドレスにする）
             href = link_tag.get('href', '').split('?')[0]
+            if not href or ('yahoo.co.jp' not in href and not href.startswith('/')): continue
             if href.startswith('/'): href = "https://sports.yahoo.co.jp" + href
             
-            # 判定用テキスト（タイトル＋説明文）
+            # 枠内の全テキスト（タイトル＋説明文）を取得
             full_content = item.get_text(separator=" ", strip=True)
-            # 表示用タイトル
+            # 表示用のタイトル
             display_title = link_tag.get_text(strip=True)
 
-            # 「中日」か「ドラゴンズ」が含まれているか
+            # 「中日」か「ドラゴンズ」が含まれているか判定
             if '中日' in full_content or 'ドラゴンズ' in full_content:
-                # 💡 ここで「なぜ落選したか」をログに出す
-                is_new_url = href not in history
-                is_new_title = display_title not in history
-                
-                if is_new_url and is_new_title:
+                # 💡 改善：URLが履歴になければ「新着」として扱う（タイトル被りによる漏れを防止）
+                if href not in history:
                     if len(display_title) >= 8:
                         summary_text = build_summary(display_title)
                         news_list.append({"summary": summary_text, "url": href})
+                        
+                        # 履歴にURLとタイトルの両方を保存
                         new_entries_to_save.extend([display_title, href])
                         history.extend([display_title, href])
                         print(f"✅ 採用: {display_title[:20]}...")
                 else:
-                    # 履歴にあった場合はその理由をログに出す
-                    print(f"⏩ スキップ（既読）: {display_title[:20]}... (URL重複:{not is_new_url} / タイトル重複:{not is_new_title})")
+                    # すでに履歴にあるURLはスキップ
+                    print(f"⏩ スキップ（既読URL）: {display_title[:15]}...")
 
-        # 履歴ファイルへの書き込み（追記）
+        # 履歴をまとめて保存
         if new_entries_to_save:
             with open(HISTORY_FILE, "a", encoding="utf-8") as f:
                 for entry in new_entries_to_save:
                     f.write(entry + "\n")
-            print(f"DEBUG: 履歴に {len(new_entries_to_save)} 件追加しました。")
                 
     except Exception as e:
         print(f"DEBUG Error: {e}")
