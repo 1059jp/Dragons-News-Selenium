@@ -13,7 +13,7 @@ REPO = "Dragons-News-Selenium"
 WORKFLOW_FILE = "auto_post.yml" 
 
 # ==========================================
-# --- HTML作成関数 (設計図) ---
+# --- HTML作成関数 ---
 # ==========================================
 def create_html(news_list):
     JST = timezone(timedelta(hours=+9), 'JST')
@@ -49,13 +49,7 @@ def create_html(news_list):
             if (response.status === 204) {
                 alert("🚀 システム起動成功！\\n約1分後に更新ボタンを押してください。");
             } else {
-                let errorMsg = "⚠️ エラーが発生しました。\\nStatus: " + response.status + " (" + response.statusText + ")";
-                if(response.status === 401) {
-                    errorMsg += "\\n\\n【原因】鍵が間違っています。";
-                    localStorage.removeItem('GH_TOKEN_YAHOO');
-                } else if(response.status === 404) {
-                    errorMsg += "\\n\\n【原因】設定(OWNER/REPO/ファイル名)のどれかが違います。";
-                }
+                let errorMsg = "⚠️ エラーが発生しました。\\nStatus: " + response.status;
                 alert(errorMsg);
             }
         } catch (e) {
@@ -120,21 +114,34 @@ def create_html(news_list):
         f.write(html_content)
 
 # ==========================================
-# --- ニュース取得とHTML作成の実行 (ここが重要！) ---
+# --- ニュース取得とメイン処理 ---
 # ==========================================
 def main():
-    # Yahoo!ニュース（ドラゴンズ）を取得する例
-    url = "https://news.yahoo.co.jp/topics/dragons" # 適切なURLに変更してください
-    news_data = []
-    try:
-        res = requests.get("https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8")
-        soup = BeautifulSoup(res.text, "html.parser")
-        # ニュースを適宜抽出（ここでは例として空リストでもHTMLは作られます）
-    except:
-        pass
+    # Yahoo!ニュース検索（中日ドラゴンズ）
+    search_url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8"
+    news_list = []
     
-    # 実際にHTMLファイルを作る命令を出す
-    create_html(news_data)
+    try:
+        response = requests.get(search_url, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
+        
+        # Yahooニュースの検索結果から記事タイトルとURLを抽出
+        articles = soup.select('li.sw-Card')
+        
+        for article in articles[:15]: # 最大15件取得
+            title_tag = article.select_one('h3')
+            link_tag = article.select_one('a')
+            
+            if title_tag and link_tag:
+                title = title_tag.get_text()
+                url = link_tag.get('href').split('?')[0] # 余計なパラメータをカット
+                news_list.append({"summary": title, "url": url})
+                
+    except Exception as e:
+        print(f"エラー発生: {e}")
+
+    # HTML作成を実行
+    create_html(news_list)
 
 if __name__ == "__main__":
     main()
