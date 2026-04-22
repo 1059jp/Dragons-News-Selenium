@@ -1,91 +1,28 @@
-import requests
-from bs4 import BeautifulSoup
-import datetime
-import os
-import re
-from datetime import timedelta, timezone
-import json
-import urllib.parse
-
-# --- 設定 ---
-HISTORY_FILE = "SHIN_history.txt"
-# STOCK_FILE = "SHIN_stock.json"  # ストック機能は廃止（常に最新に入れ替えるため）
-OWNER = "1059jp"  # あなたのユーザー名
-REPO = "Yahoo-Dragons-News" # Yahoo版のリポジトリ名（適宜確認してください）
-WORKFLOW_FILE = "main.yml" 
-
-def build_summary(title):
-    # 【元のまま】加工ロジックは一切変えていません
-    text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
-    text = text.replace("を発表", "を発表！").replace("が判明", "が判明...")
-    if "ホームラン" in text: text = text.replace("ホームラン", "🚀ホームラン")
-    if "勝利" in text: text = text.replace("勝利", "✨勝利")
-    if len(text) > 110: text = text[:107] + "..."
-    return f"{text}\n\n#dragons #中日ドラゴンズ"
-
-def get_dragons_news():
-    url = "https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8&st=n"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-
-    history = []
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            history = [line.strip() for line in f.readlines()]
-
-    current_news = [] # 今回の表示用リスト
-
-    try:
-        res = requests.get(url, headers=headers, timeout=15)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        items = soup.find_all(class_=lambda x: x and 'sw-Card' in x)
-
-        new_entries = []
-        for item in items:
-            # --- 日付指定（is_today）の判定を削除しました ---
-            
-            link_tag = item.find('a')
-            if not link_tag: continue
-            
-            href = link_tag.get('href', '').split('?')[0]
-            # タイトル取得（元のまま）
-            title = item.find(class_=re.compile(r'title')).get_text().strip() if item.find(class_=re.compile(r'title')) else item.get_text().strip()
-            
-            if len(title) < 10: continue
-
-            if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
-                # 履歴にある（＝ポスト済み）ものは画面に出さない
-                if title not in history and href not in history:
-                    summary_text = build_summary(title)
-                    current_news.append({"summary": summary_text, "url": href})
-                    new_entries.extend([title, href])
-
-        if new_entries:
-            with open(HISTORY_FILE, "a", encoding="utf-8") as f:
-                for entry in new_entries: f.write(entry + "\n")
-                
-    except Exception as e:
-        print(f"Error: {e}")
-    
-    return current_news
-
 def create_html(news_list):
     JST = timezone(timedelta(hours=+9), 'JST')
     now = datetime.datetime.now(JST).strftime('%m/%d %H:%M')
     
-    # 【セキュリティ】スマホのブラウザに鍵を覚えさせる仕組み
+    # 【改良版】エラーが起きたら鍵を削除して、再入力できるようにしました
     js_code = """
     function hideCard(el) { el.closest('.card').style.display = 'none'; }
     function reloadPage() { location.reload(); }
 
     async function triggerSystemUpdate() {
+        // 保存されている鍵を取得
         let token = localStorage.getItem('GH_TOKEN_YAHOO');
-        if(!token) {
-            token = prompt("【初回のみ】GitHubトークンを入力してください。\\n(ブラウザに安全に保存されます)");
-            if(token) localStorage.setItem('GH_TOKEN_YAHOO', token);
+        
+        // 鍵がない、または空っぽの場合は入力を求める
+        if(!token || token === "null") {
+            token = prompt("【GitHubトークン入力】\\nghp_ から始まる鍵を入力してください。");
+            if(token) {
+                localStorage.setItem('GH_TOKEN_YAHOO', token);
+            } else {
+                return; // キャンセルされたら何もしない
+            }
         }
-        if(!token) return;
 
         const btn = document.querySelector('.system-btn');
+        const originalText = btn.innerText;
         btn.innerText = "⏳ 実行中...";
         btn.disabled = true;
 
@@ -100,22 +37,25 @@ def create_html(news_list):
             });
 
             if (response.status === 204) {
-                alert("システムを起動しました！\\n約1分後に更新ボタンを押してください。");
+                alert("🚀 システム起動成功！\\n約1分後に更新ボタンを押してください。");
             } else if(response.status === 401) {
-                alert("鍵が無効です。");
+                // 【ここが重要】鍵が間違っていたら、保存されている鍵を消去する
+                alert("❌ 鍵が無効です。入力をやり直してください。");
                 localStorage.removeItem('GH_TOKEN_YAHOO');
             } else {
-                alert("エラーが発生しました。");
+                alert("⚠️ エラーが発生しました(Status: " + response.status + ")。一度鍵をリセットします。");
+                localStorage.removeItem('GH_TOKEN_YAHOO');
             }
         } catch (e) {
-            alert("通信失敗。");
+            alert("📡 通信失敗。ネット接続を確認してください。");
         } finally {
-            btn.innerText = "🚀 システム更新";
+            btn.innerText = originalText;
             btn.disabled = false;
         }
     }
     """
     
+    # デザイン部分は変更なし
     html_content = f"""
     <!DOCTYPE html>
     <html lang="ja">
@@ -167,7 +107,3 @@ def create_html(news_list):
     
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
-
-if __name__ == "__main__":
-    news = get_dragons_news()
-    create_html(news)
