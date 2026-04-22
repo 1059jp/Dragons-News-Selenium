@@ -8,7 +8,9 @@
         <style>
             body { font-family: sans-serif; background: #f5f8fa; padding: 10px; margin: 0; }
             .header { background:#003399; color:white; padding:15px; text-align:center; border-radius: 0 0 10px 10px; position: sticky; top: 0; z-index: 1000; }
-            .refresh-btn { margin-top:10px; padding:12px; border-radius:5px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; width: 100%; }
+            .btn-header-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+            .refresh-btn { padding:10px; border-radius:20px; border:none; background:white; color:#003399; font-weight:bold; cursor:pointer; }
+            .system-btn { padding:10px; border-radius:20px; border:none; background:#ff4444; color:white; font-weight:bold; cursor:pointer; }
             .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 5px solid #003399; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
             .summary-text { font-weight: bold; margin-bottom: 15px; line-height: 1.5; color: #1c1e21; white-space: pre-wrap; }
             .btn-group { display: grid; grid-template-columns: 1fr 1.2fr 50px; gap: 8px; }
@@ -18,14 +20,55 @@
             .delete-btn { background: #eeeeee; color: #666; border: none; }
         </style>
         <script>
-            function hideCard(el) {
-                el.closest('.card').style.display = 'none';
+    function hideCard(el) { el.closest('.card').style.display = 'none'; }
+    function reloadPage() { location.reload(); }
+
+    async function triggerSystemUpdate() {
+        let token = localStorage.getItem('GH_TOKEN_YAHOO');
+        if(!token) {
+            token = prompt("【初回のみ】GitHubトークンを入力してください。\n(ブラウザに安全に保存されます)");
+            if(token) localStorage.setItem('GH_TOKEN_YAHOO', token);
+        }
+        if(!token) return;
+
+        const btn = document.querySelector('.system-btn');
+        btn.innerText = "⏳ 実行中...";
+        btn.disabled = true;
+
+        try {
+            const response = await fetch('https://api.github.com/repos/1059jp/Yahoo-Dragons-News/actions/workflows/main.yml/dispatches', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Accept': 'application/vnd.github.v3+json'
+                },
+                body: JSON.stringify({ ref: 'main' })
+            });
+
+            if (response.status === 204) {
+                alert("システムを起動しました！\n約1分後に更新ボタンを押してください。");
+            } else if(response.status === 401) {
+                alert("鍵が無効です。");
+                localStorage.removeItem('GH_TOKEN_YAHOO');
+            } else {
+                alert("エラーが発生しました。");
             }
-        </script>
+        } catch (e) {
+            alert("通信失敗。");
+        } finally {
+            btn.innerText = "🚀 システム更新";
+            btn.disabled = false;
+        }
+    }
+    </script>
     </head>
     <body>
         <div class="header">
-            <h2 style="margin:0; font-size:1.1em;">🐉 ドラゴンズ新着 (04/22 13:41)</h2>
-            <button class="refresh-btn" onclick="location.reload()">🔄 表示を最新に更新</button>
+            <h2 style="margin:0; font-size:1.1em;">🐉 ドラゴンズ新着 (04/22 14:21)</h2>
+            <div class="btn-header-group">
+                <button class="system-btn" onclick="triggerSystemUpdate()">🚀 システム更新</button>
+                <button class="refresh-btn" onclick="reloadPage()">🔄 更新</button>
+            </div>
         </div>
-    <p style='text-align:center; padding:50px; color:#666;'>本日の新着ニュースはありません。</p></body></html>
+        <div style="margin-top:15px;">
+    <p style='text-align:center; padding:50px; color:#666;'>新着ニュースはありません。</p></div></body></html>
