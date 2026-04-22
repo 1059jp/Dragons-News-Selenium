@@ -13,18 +13,18 @@ WORKFLOW_FILE = "auto_post.yml"
 HISTORY_FILE = "SHIN_history.txt"
 
 def build_summary(title):
-    # 余計な記号をカット
-    text = re.sub(r'\(.*?\)|（.*?）|【.*?】|\d+時\d+分.*$', '', title).strip()
-    text = text.replace("を発表", "を発表！").replace("が判明", "が判明...")
-    if "ホームラン" in text: text = text.replace("ホームラン", "🚀ホームラン")
-    if "勝利" in text: text = text.replace("勝利", "✨勝利")
+    text = title.strip()
+    text = re.sub(r'\d+時\d+分.*$', '', text).strip()
     if len(text) > 110: text = text[:107] + "..."
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
-    # 💡 1059jpさんが見つけてくれた「中日専用」のURLに変更
-    url = "https://sports.yahoo.co.jp/list/news/npb?genre=npb&team=4"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    # 💡 確実に読み込める元のURLに戻します
+    url = "https://sports.yahoo.co.jp/list/news/npb?genre=npb"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Referer": "https://www.google.com/"
+    }
 
     history = []
     if os.path.exists(HISTORY_FILE):
@@ -36,42 +36,52 @@ def get_dragons_news():
 
     try:
         res = requests.get(url, headers=headers, timeout=20)
+        res.raise_for_status()
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # ニュースの枠をすべて取得
+        # ニュースの枠（ListItem）を特定
         articles = soup.find_all(['li', 'div'], class_=re.compile(r'ListItem|Card'))
+        
+        # 万が一クラス名で見つからない場合はaタグを全部見る
+        if not articles:
+            articles = soup.find_all('a')
 
         for item in articles:
-            link_tag = item.find('a')
+            link_tag = item if item.name == 'a' else item.find('a')
             if not link_tag: continue
             
             href = link_tag.get('href', '').split('?')[0]
+            if not href or ('yahoo.co.jp' not in href and not href.startswith('/')): continue
             if href.startswith('/'): href = "https://sports.yahoo.co.jp" + href
             
-            # タイトルを取得
-            display_title = link_tag.get_text(strip=True)
+            # 💡 枠の中にある「すべての文字（リード文含む）」を取得
+            # これでタイトルに「中日」がなくても、説明文にあればマッチします
+            full_content = item.get_text(separator=" ", strip=True)
             
-            # 💡 修正ポイント：
-            # このページにあるニュースは「中日」という文字が入っていなくても、
-            # 全部ドラゴンズ関連なので、無条件で拾います！
-            if len(display_title) >= 8:
-                if href not in history and display_title not in history:
-                    summary_text = build_summary(display_title)
-                    news_list.append({"summary": summary_text, "url": href})
-                    new_entries_to_save.extend([display_title, href])
-                    history.extend([display_title, href])
-                        
+            # 「中日」か「ドラゴンズ」が含まれているか判定
+            if '中日' in full_content or 'ドラゴンズ' in full_content:
+                display_title = link_tag.get_text(strip=True)
+                if not display_title: display_title = full_content[:50]
+                
+                if len(display_title) >= 8:
+                    # 履歴にないか最終確認
+                    if href not in history and display_title not in history:
+                        summary_text = build_summary(display_title)
+                        news_list.append({"summary": summary_text, "url": href})
+                        new_entries_to_save.extend([display_title, href])
+                        history.extend([display_title, href])
+
+        print(f"DEBUG: {len(news_list)}件の中日ニュースを発見")
+                
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"DEBUG Error: {e}")
     
     return news_list
-
 
 def create_html(news_list):
     JST = timezone(timedelta(hours=+9), 'JST')
     now = datetime.datetime.now(JST).strftime('%m/%d %H:%M')
     
-    # 💡 消してはいけないブラウザ更新用JavaScript
     js_code = """
     function hideCard(el) { el.closest('.card').style.display = 'none'; }
     function reloadPage() { location.reload(); }
