@@ -21,9 +21,11 @@ def build_summary(title):
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
-    # 💡 監視先をスポーツナビのプロ野球ニュース一覧に設定
+    # 監視先：スポーツナビ プロ野球ニュース一覧
     url = "https://sports.yahoo.co.jp/list/news/npb?genre=npb"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
 
     history = []
     if os.path.exists(HISTORY_FILE):
@@ -35,33 +37,40 @@ def get_dragons_news():
 
     try:
         res = requests.get(url, headers=headers, timeout=15)
+        res.raise_for_status()
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # ページ内のニュースリンクをすべて取得
-        links = soup.find_all('a', href=re.compile(r'/news/|/column/|/official/'))
+        # 💡 ここを修正！ 
+        # sports.yahoo.co.jp だけでなく、ジャンプ先の news.yahoo.co.jp のリンクも全部拾います
+        all_links = soup.find_all('a', href=re.compile(r'yahoo.co.jp/articles/|/news/|/column/'))
 
-        for link in links:
+        for link in all_links:
             href = link.get('href', '').split('?')[0]
+            
+            # URLを正しい形に整える
             if href.startswith('/'):
                 href = "https://sports.yahoo.co.jp" + href
             
             title = link.get_text(strip=True)
+            
+            # あまりに短いテキストはスキップ
             if len(title) < 10: continue
 
-            # ドラゴンズ関連かつ、未読のものだけ
+            # タイトルに中日・ドラゴンズ・ドラが含まれているか
             if any(k in title for k in ['中日', 'ドラゴンズ', 'ドラ']):
+                # 履歴にないものだけ
                 if title not in history and href not in history:
                     summary_text = build_summary(title)
                     news_list.append({"summary": summary_text, "url": href})
+                    
                     new_entries_to_save.extend([title, href])
                     history.extend([title, href])
 
-        if new_entries_to_save:
-            with open(HISTORY_FILE, "a", encoding="utf-8") as f:
-                for entry in new_entries_to_save: f.write(entry + "\n")
+        # ログ出力（GitHub Actionsの実行画面で見れます）
+        print(f"調査完了: 合計 {len(all_links)} 件中、中日関連を {len(news_list)} 件発見しました。")
                 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"通信エラー: {e}")
     
     return news_list
 
