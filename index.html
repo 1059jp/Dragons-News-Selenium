@@ -26,7 +26,7 @@
     async function triggerSystemUpdate() {
         let token = localStorage.getItem('GH_TOKEN_YAHOO');
         if(!token || token === "null") {
-            token = prompt("鍵を入力してください。");
+            token = prompt("鍵（ghp_...）を入力してください。");
             if(token) { localStorage.setItem('GH_TOKEN_YAHOO', token); }
             else { return; }
         }
@@ -43,16 +43,16 @@
                 },
                 body: JSON.stringify({ ref: 'main' })
             });
-            if (response.status === 204) { alert("🚀 更新完了！\n1分後にリロードしてください。"); }
+            if (response.status === 204) { alert("🚀 システム起動成功！\n1分後に更新ボタンを押してください。"); }
             else { alert("エラー: " + response.status); }
-        } catch (e) { alert("失敗: " + e); }
+        } catch (e) { alert("通信失敗: " + e); }
         finally { btn.innerText = "🚀 システム更新"; btn.disabled = false; }
     }
     </script>
     </head>
     <body>
         <div class="header">
-            <h2 style="margin:0; font-size:1.1em;">🐉 ドラゴンズ新着 (04/22 18:18)</h2>
+            <h2 style="margin:0; font-size:1.1em;">🐉 ドラゴンズ新着 (04/22 18:34)</h2>
             <div class="btn-header-group">
                 <button class="system-btn" onclick="triggerSystemUpdate()">🚀 システム更新</button>
                 <button class="refresh-btn" onclick="reloadPage()">🔄 更新</button>
