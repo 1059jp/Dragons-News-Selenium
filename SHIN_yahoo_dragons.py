@@ -22,11 +22,10 @@ def build_summary(title):
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
+    # 全球団混ざっているページをそのまま監視
     url = "https://sports.yahoo.co.jp/list/news/npb?genre=npb"
-    # 💡 潜入モード：本物のブラウザからのアクセスに見せかける
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
         "Referer": "https://www.google.com/"
     }
 
@@ -40,38 +39,45 @@ def get_dragons_news():
 
     try:
         res = requests.get(url, headers=headers, timeout=20)
-        res.raise_for_status()
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 💡 全リンクスキャン方式：どんなタグに隠れていても「中日」を捕まえる
-        links = soup.find_all('a')
+        # 💡 修正：ニュースの「カード（枠）」全体を特定して取得
+        # これにより、タイトルとその下の説明文をセットで読み込めます
+        articles = soup.find_all(['li', 'div'], class_=re.compile(r'ListItem|Card'))
         
-        for link in links:
-            href = link.get('href', '').split('?')[0] # パラメータを除去して純粋なURLにする
-            if not href or 'javascript' in href: continue
+        if not articles:
+            # クラス名が取れない時のための予備（リンクを広めに拾う）
+            articles = soup.find_all('a')
 
-            if href.startswith('/'):
-                href = "https://sports.yahoo.co.jp" + href
+        for item in articles:
+            link_tag = item if item.name == 'a' else item.find('a')
+            if not link_tag: continue
             
-            # リンク内の全テキストを取得
-            full_text = link.get_text(separator="", strip=True)
+            href = link_tag.get('href', '').split('?')[0]
+            if not href or ('yahoo.co.jp' not in href and not href.startswith('/')): continue
+            if href.startswith('/'): href = "https://sports.yahoo.co.jp" + href
             
-            # 「中日」が含まれているかチェック
-            if '中日' in full_text or 'ドラゴンズ' in full_text:
-                if len(full_text) >= 10:
-                    # 履歴にないものだけ
-                    if href not in history and full_text not in history:
-                        summary_text = build_summary(full_text)
+            # 💡 修正：枠の中にある「すべてのテキスト（タイトル＋説明文）」を取得
+            full_content = item.get_text(separator=" ", strip=True)
+            
+            # 「中日」または「ドラゴンズ」が含まれているか
+            # 選手名ではなく、チーム名だけで判定します
+            if '中日' in full_content or 'ドラゴンズ' in full_content:
+                # ブラウザに表示する用には「タイトル部分」だけを綺麗に抜き出す
+                display_title = link_tag.get_text(strip=True)
+                if not display_title: display_title = full_content[:50] # 万が一用
+                
+                if len(display_title) >= 8:
+                    if href not in history and display_title not in history:
+                        summary_text = build_summary(display_title)
                         news_list.append({"summary": summary_text, "url": href})
-                        new_entries_to_save.extend([full_text, href])
-                        history.extend([full_text, href])
+                        new_entries_to_save.extend([display_title, href])
+                        history.extend([display_title, href])
 
-        if new_entries_to_save:
-            with open(HISTORY_FILE, "a", encoding="utf-8") as f:
-                for entry in new_entries_to_save: f.write(entry + "\n")
+        print(f"調査完了: {len(news_list)}件の中日関連ニュースを発見")
                 
     except Exception as e:
-        print(f"DEBUG Error: {e}")
+        print(f"Error: {e}")
     
     return news_list
 
