@@ -167,4 +167,11 @@ def create_html(news_list):
 
 if __name__ == "__main__":
     news_data = get_dragons_news()
+    # 💡 ニュースが0件（新着なし）でも、必ずHTMLを作成して保存するようにします
     create_html(news_data)
+    
+    # ログを出して、GitHubに「仕事をしたぞ」とアピールする
+    if not news_data:
+        print("LOG: 新着はありませんでしたが、画面をリフレッシュしました。")
+    else:
+        print(f"LOG: {len(news_data)} 件の新着ニュースで画面を更新しました。")
