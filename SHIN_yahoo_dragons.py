@@ -1,6 +1,8 @@
 import os
 import datetime
 import urllib.parse
+import requests
+from bs4 import BeautifulSoup
 from datetime import timedelta, timezone
 
 # ==========================================
@@ -11,27 +13,22 @@ REPO = "Dragons-News-Selenium"
 WORKFLOW_FILE = "auto_post.yml" 
 
 # ==========================================
-# --- HTML作成関数 ---
+# --- HTML作成関数 (設計図) ---
 # ==========================================
 def create_html(news_list):
     JST = timezone(timedelta(hours=+9), 'JST')
     now = datetime.datetime.now(JST).strftime('%m/%d %H:%M')
     
-    # 【診断機能付き】JavaScript
     js_code = """
     function hideCard(el) { el.closest('.card').style.display = 'none'; }
     function reloadPage() { location.reload(); }
 
     async function triggerSystemUpdate() {
         let token = localStorage.getItem('GH_TOKEN_YAHOO');
-        
         if(!token || token === "null") {
             token = prompt("【GitHubトークン入力】\\nghp_ から始まる鍵を入力してください。");
-            if(token) {
-                localStorage.setItem('GH_TOKEN_YAHOO', token);
-            } else {
-                return;
-            }
+            if(token) { localStorage.setItem('GH_TOKEN_YAHOO', token); }
+            else { return; }
         }
 
         const btn = document.querySelector('.system-btn');
@@ -52,18 +49,13 @@ def create_html(news_list):
             if (response.status === 204) {
                 alert("🚀 システム起動成功！\\n約1分後に更新ボタンを押してください。");
             } else {
-                // ここで具体的なエラー番号を表示するようにしました
                 let errorMsg = "⚠️ エラーが発生しました。\\nStatus: " + response.status + " (" + response.statusText + ")";
-                
                 if(response.status === 401) {
-                    errorMsg += "\\n\\n【原因】鍵(トークン)が間違っているか、消去されています。シークレットモードで入れ直してください。";
+                    errorMsg += "\\n\\n【原因】鍵が間違っています。";
                     localStorage.removeItem('GH_TOKEN_YAHOO');
                 } else if(response.status === 404) {
-                    errorMsg += "\\n\\n【原因】宛先が見つかりません。OWNER名、REPO名、または指示書ファイル名が間違っています。";
-                } else if(response.status === 403) {
-                    errorMsg += "\\n\\n【原因】権限がありません。GitHubのSettingsで「Read and Write」を許可してください。";
+                    errorMsg += "\\n\\n【原因】設定(OWNER/REPO/ファイル名)のどれかが違います。";
                 }
-                
                 alert(errorMsg);
             }
         } catch (e) {
@@ -126,3 +118,23 @@ def create_html(news_list):
     
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
+
+# ==========================================
+# --- ニュース取得とHTML作成の実行 (ここが重要！) ---
+# ==========================================
+def main():
+    # Yahoo!ニュース（ドラゴンズ）を取得する例
+    url = "https://news.yahoo.co.jp/topics/dragons" # 適切なURLに変更してください
+    news_data = []
+    try:
+        res = requests.get("https://news.yahoo.co.jp/search?p=%E4%B8%AD%E6%97%A5%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3%E3%82%BA&ei=utf-8")
+        soup = BeautifulSoup(res.text, "html.parser")
+        # ニュースを適宜抽出（ここでは例として空リストでもHTMLは作られます）
+    except:
+        pass
+    
+    # 実際にHTMLファイルを作る命令を出す
+    create_html(news_data)
+
+if __name__ == "__main__":
+    main()
