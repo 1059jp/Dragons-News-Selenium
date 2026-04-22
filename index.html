@@ -25,18 +25,19 @@
 
     async function triggerSystemUpdate() {
         let token = localStorage.getItem('GH_TOKEN_YAHOO');
-        if(!token) {
-            token = prompt("【初回のみ】GitHubトークンを入力してください。\n(ブラウザに安全に保存されます)");
-            if(token) localStorage.setItem('GH_TOKEN_YAHOO', token);
+        if(!token || token === "null") {
+            token = prompt("【GitHubトークン入力】\nghp_ から始まる鍵を入力してください。");
+            if(token) { localStorage.setItem('GH_TOKEN_YAHOO', token); }
+            else { return; }
         }
-        if(!token) return;
 
         const btn = document.querySelector('.system-btn');
+        const originalText = btn.innerText;
         btn.innerText = "⏳ 実行中...";
         btn.disabled = true;
 
         try {
-            const response = await fetch('https://api.github.com/repos/1059jp/Yahoo-Dragons-News/actions/workflows/main.yml/dispatches', {
+            const response = await fetch('https://api.github.com/repos/1059jp/Dragons-News-Selenium/actions/workflows/auto_post.yml/dispatches', {
                 method: 'POST',
                 headers: {
                     'Authorization': 'Bearer ' + token,
@@ -46,17 +47,21 @@
             });
 
             if (response.status === 204) {
-                alert("システムを起動しました！\n約1分後に更新ボタンを押してください。");
-            } else if(response.status === 401) {
-                alert("鍵が無効です。");
-                localStorage.removeItem('GH_TOKEN_YAHOO');
+                alert("🚀 システム起動成功！\n約1分後に更新ボタンを押してください。");
             } else {
-                alert("エラーが発生しました。");
+                let errorMsg = "⚠️ エラーが発生しました。\nStatus: " + response.status + " (" + response.statusText + ")";
+                if(response.status === 401) {
+                    errorMsg += "\n\n【原因】鍵が間違っています。";
+                    localStorage.removeItem('GH_TOKEN_YAHOO');
+                } else if(response.status === 404) {
+                    errorMsg += "\n\n【原因】設定(OWNER/REPO/ファイル名)のどれかが違います。";
+                }
+                alert(errorMsg);
             }
         } catch (e) {
-            alert("通信失敗。");
+            alert("📡 通信失敗: " + e);
         } finally {
-            btn.innerText = "🚀 システム更新";
+            btn.innerText = originalText;
             btn.disabled = false;
         }
     }
@@ -64,7 +69,7 @@
     </head>
     <body>
         <div class="header">
-            <h2 style="margin:0; font-size:1.1em;">🐉 ドラゴンズ新着 (04/22 14:21)</h2>
+            <h2 style="margin:0; font-size:1.1em;">🐉 ドラゴンズ新着 (04/22 15:04)</h2>
             <div class="btn-header-group">
                 <button class="system-btn" onclick="triggerSystemUpdate()">🚀 システム更新</button>
                 <button class="refresh-btn" onclick="reloadPage()">🔄 更新</button>
