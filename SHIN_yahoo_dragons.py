@@ -13,13 +13,19 @@ WORKFLOW_FILE = "auto_post.yml"
 HISTORY_FILE = "SHIN_history.txt"
 
 def build_summary(title):
+    # 💡 修正：ポスト用テキストから日付と時間を削除
     text = title.strip()
-    text = re.sub(r'\d+時\d+分.*$', '', text).strip()
+    # 2026/4/22 のような日付を削除
+    text = re.sub(r'\d{4}/\d{1,2}/\d{1,2}', '', text)
+    # 18:24 のような時間を削除
+    text = re.sub(r'\d{1,2}:\d{2}', '', text)
+    # 重なった空白を整理
+    text = text.strip()
+    
     if len(text) > 110: text = text[:107] + "..."
     return f"{text}\n\n#dragons #中日ドラゴンズ"
 
 def get_dragons_news():
-    # 💡 確実に読み込める元のURLに戻します
     url = "https://sports.yahoo.co.jp/list/news/npb?genre=npb"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -39,10 +45,9 @@ def get_dragons_news():
         res.raise_for_status()
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # ニュースの枠（ListItem）を特定
+        # ニュース枠をまるごと取得（リード文を含むため）
         articles = soup.find_all(['li', 'div'], class_=re.compile(r'ListItem|Card'))
         
-        # 万が一クラス名で見つからない場合はaタグを全部見る
         if not articles:
             articles = soup.find_all('a')
 
@@ -54,24 +59,19 @@ def get_dragons_news():
             if not href or ('yahoo.co.jp' not in href and not href.startswith('/')): continue
             if href.startswith('/'): href = "https://sports.yahoo.co.jp" + href
             
-            # 💡 枠の中にある「すべての文字（リード文含む）」を取得
-            # これでタイトルに「中日」がなくても、説明文にあればマッチします
+            # 枠内の全テキスト（タイトル＋説明文）で判定
             full_content = item.get_text(separator=" ", strip=True)
             
-            # 「中日」か「ドラゴンズ」が含まれているか判定
             if '中日' in full_content or 'ドラゴンズ' in full_content:
                 display_title = link_tag.get_text(strip=True)
                 if not display_title: display_title = full_content[:50]
                 
                 if len(display_title) >= 8:
-                    # 履歴にないか最終確認
                     if href not in history and display_title not in history:
                         summary_text = build_summary(display_title)
                         news_list.append({"summary": summary_text, "url": href})
                         new_entries_to_save.extend([display_title, href])
                         history.extend([display_title, href])
-
-        print(f"DEBUG: {len(news_list)}件の中日ニュースを発見")
                 
     except Exception as e:
         print(f"DEBUG Error: {e}")
