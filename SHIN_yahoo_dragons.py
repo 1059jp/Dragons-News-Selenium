@@ -1,23 +1,36 @@
+import os
+import datetime
+import urllib.parse
+from datetime import timedelta, timezone
+
+# ==========================================
+# --- 設定 (ここを書き換えました) ---
+# ==========================================
+OWNER = "1059jp"
+REPO = "Dragons-News-Selenium"
+WORKFLOW_FILE = "main.yml" 
+
+# ==========================================
+# --- HTML作成関数 ---
+# ==========================================
 def create_html(news_list):
     JST = timezone(timedelta(hours=+9), 'JST')
     now = datetime.datetime.now(JST).strftime('%m/%d %H:%M')
     
-    # 【改良版】エラーが起きたら鍵を削除して、再入力できるようにしました
+    # JavaScript部分：エラー時に鍵を削除して再入力可能にする
     js_code = """
     function hideCard(el) { el.closest('.card').style.display = 'none'; }
     function reloadPage() { location.reload(); }
 
     async function triggerSystemUpdate() {
-        // 保存されている鍵を取得
         let token = localStorage.getItem('GH_TOKEN_YAHOO');
         
-        // 鍵がない、または空っぽの場合は入力を求める
         if(!token || token === "null") {
             token = prompt("【GitHubトークン入力】\\nghp_ から始まる鍵を入力してください。");
             if(token) {
                 localStorage.setItem('GH_TOKEN_YAHOO', token);
             } else {
-                return; // キャンセルされたら何もしない
+                return;
             }
         }
 
@@ -39,7 +52,6 @@ def create_html(news_list):
             if (response.status === 204) {
                 alert("🚀 システム起動成功！\\n約1分後に更新ボタンを押してください。");
             } else if(response.status === 401) {
-                // 【ここが重要】鍵が間違っていたら、保存されている鍵を消去する
                 alert("❌ 鍵が無効です。入力をやり直してください。");
                 localStorage.removeItem('GH_TOKEN_YAHOO');
             } else {
@@ -55,7 +67,6 @@ def create_html(news_list):
     }
     """
     
-    # デザイン部分は変更なし
     html_content = f"""
     <!DOCTYPE html>
     <html lang="ja">
@@ -107,3 +118,5 @@ def create_html(news_list):
     
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
+
+# ※ この下に実際のニュース取得処理（requests等）を続けてください
