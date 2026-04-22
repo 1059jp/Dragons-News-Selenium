@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # 最新版(v4)にしました
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # 最新版(v5)にしました
         with:
           python-version: '3.9'
 
@@ -25,14 +25,16 @@ jobs:
           pip install requests beautifulsoup4
 
       - name: Run Python Script
-        run: python SHIN_selenium.py
+        run: python SHIN_yahoo_dragons.py  # 【修正1】ファイル名を新しいものに合わせました
         env:
           TZ: 'Asia/Tokyo'
+          MY_GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }} # 【修正2】宝箱の鍵をPythonに渡す設定を追加
 
       - name: Commit and Push Changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html SHIN_history.txt SHIN_stock.json
-          git commit -m "Update dragons news stock" || true
+          # 【修正3】SHIN_stock.json を git add から外しました（ストック廃止のため）
+          git add index.html SHIN_history.txt
+          git commit -m "Update dragons news" || true
           git push
